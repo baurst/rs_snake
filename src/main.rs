@@ -1,18 +1,16 @@
 extern crate termion;
 
 use std::io::{stdin, stdout, Write};
+use std::thread;
+use std::time::Duration;
 use termion::event::Key;
 use termion::input::TermRead;
 use termion::raw::IntoRawMode;
 
+#[derive(Clone, Copy, Debug)]
 struct Coordinate {
     row: usize,
     col: usize,
-}
-
-struct ScreenBufferHelper {
-    num_rows: usize,
-    num_cols: usize,
 }
 
 fn clear_screen_buffer(screen_buffer: &mut Vec<char>) {
@@ -109,6 +107,36 @@ fn get_buffer_at(screen_buffer: &Vec<char>, screen_width: usize, row: usize, col
     return screen_buffer[col + row * screen_width];
 }
 
+fn move_snake(snake: &mut Vec<Coordinate>, snake_direction: i64) {
+    // add head in new direction
+    let new_head = match snake_direction {
+        0 => Coordinate {
+            row: snake[0].row - 1,
+            col: snake[0].col,
+        }, // up
+        1 => Coordinate {
+            row: snake[0].row,
+            col: snake[0].col + 1,
+        }, // right
+        2 => Coordinate {
+            row: snake[0].row + 1,
+            col: snake[0].col,
+        }, // down
+        3 => Coordinate {
+            row: snake[0].row,
+            col: snake[0].col - 1,
+        }, // left
+        _ => Coordinate {
+            row: snake[0].row,
+            col: snake[0].col,
+        }, // no movement at all, invalid direction
+    };
+
+    snake.insert(0, new_head);
+    // remove tail
+    snake.pop();
+}
+
 fn main() {
     let screen_width = 40;
     let screen_height = 30;
@@ -128,13 +156,24 @@ fn main() {
     );
 
     let mut snake = vec![
-        Coordinate { row: 20, col: 15 },
-        Coordinate { row: 19, col: 15 },
         Coordinate { row: 18, col: 15 },
+        Coordinate { row: 19, col: 15 },
+        Coordinate { row: 20, col: 15 },
     ];
 
+    // 0: up, 1: right, 2: down, 3: left
+    let mut snake_direction = 0;
+
     loop {
-        // draw screen buffer
+        // limit speed
+        thread::sleep(Duration::from_millis(200));
+
+        // move snake
+        move_snake(&mut snake, snake_direction);
+
+        // clear, update and draw screen buffer
+        clear_screen_buffer(&mut screen_buffer);
+
         add_snake_to_buffer(&mut screen_buffer, &snake, screen_width);
         add_game_border_to_buffer(&mut screen_buffer, screen_width, screen_height);
         draw_screen_buffer(&screen_buffer, screen_width, screen_height);
@@ -150,15 +189,14 @@ fn main() {
             Key::Esc => {
                 break;
             }
-            Key::Left => set_buffer_at(&mut screen_buffer, screen_width, 20, 20, 'l'),
-            Key::Right => set_buffer_at(&mut screen_buffer, screen_width, 20, 20, 'r'),
-            Key::Up => set_buffer_at(&mut screen_buffer, screen_width, 20, 20, 'u'),
-            Key::Down => set_buffer_at(&mut screen_buffer, screen_width, 20, 20, 'd'),
-            Key::Backspace => println!("×"),
+            Key::Left => snake_direction -= 1,
+            Key::Right => snake_direction += 1,
             _ => {}
         }
         stdout.flush().unwrap();
-
-        // write!(stdout, "{}", termion::cursor::Show).unwrap();
+        snake_direction = match snake_direction {
+            -1 => 3,
+            _ => snake_direction % 4,
+        };
     }
 }
