@@ -1,14 +1,15 @@
 extern crate termion;
 
-use std::io::{stdin, stdout, Write};
+use rand::Rng;
+use std::io::{stdout, Write};
 use std::thread;
 use std::time::Duration;
-use termion::event::Key;
 use termion::async_stdin;
+use termion::event::Key;
 use termion::input::TermRead;
 use termion::raw::IntoRawMode;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(PartialEq, Clone, Copy, Debug)]
 struct Coordinate {
     row: usize,
     col: usize,
@@ -138,6 +139,18 @@ fn move_snake(snake: &mut Vec<Coordinate>, snake_direction: i64) {
     snake.pop();
 }
 
+fn snake_item_collision(snake: &[Coordinate], item: &Coordinate) -> bool {
+    let is_collision = snake.iter().position(|&r| r == *item);
+    return is_collision.is_some();
+}
+
+fn get_random_food_pos(screen_height: usize, screen_width: usize) -> Coordinate {
+    let mut rng = rand::thread_rng();
+    let row = rng.gen_range(1, screen_height);
+    let col = rng.gen_range(1, screen_width);
+    return Coordinate { row: row, col: col };
+}
+
 fn main() {
     let screen_width = 40;
     let screen_height = 30;
@@ -146,15 +159,7 @@ fn main() {
     // clear screen
     clear_screen_buffer(&mut screen_buffer);
 
-    let mut food_pos = Coordinate { row: 20, col: 15 };
-
-    set_buffer_at(
-        &mut screen_buffer,
-        screen_width,
-        food_pos.row,
-        food_pos.col,
-        'O',
-    );
+    let mut food_pos = Coordinate { row: 10, col: 15 };
 
     let mut snake = vec![
         Coordinate { row: 18, col: 15 },
@@ -164,27 +169,61 @@ fn main() {
 
     // 0: up, 1: right, 2: down, 3: left
     let mut snake_direction = 0;
-    
+
     loop {
-        // limit speed
+        // limit speed, crude but sufficient
         let stdin = async_stdin();
         thread::sleep(Duration::from_millis(200));
-        
+
         // move snake
         move_snake(&mut snake, snake_direction);
-        
+
+        if snake[0] == food_pos {
+            // place new food
+            let mut new_food_pos = get_random_food_pos(screen_height, screen_width);
+            while snake_item_collision(&snake, &new_food_pos) {
+                new_food_pos = get_random_food_pos(screen_height, screen_width);
+            }
+            food_pos = new_food_pos;
+
+            // grow snake
+            for _i in 0..2 {
+                snake.push(*snake.last().unwrap());
+            }
+        }
+
+        // check for collisions
+        if snake[0].row == 0
+            || snake[0].row == screen_height - 1
+            || snake[0].col == 0
+            || snake[0].col == screen_width - 1
+            || snake_item_collision(&snake[1..], &snake[0])
+        {
+            clear_screen_buffer(&mut screen_buffer);
+            draw_screen_buffer(&screen_buffer, screen_width, screen_height);
+            println!("Snake has hit something - Game over!");
+            break;
+        }
+
         // clear, update and draw screen buffer
         clear_screen_buffer(&mut screen_buffer);
-        
+
+        set_buffer_at(
+            &mut screen_buffer,
+            screen_width,
+            food_pos.row,
+            food_pos.col,
+            'O',
+        );
+
         add_snake_to_buffer(&mut screen_buffer, &snake, screen_width);
         add_game_border_to_buffer(&mut screen_buffer, screen_width, screen_height);
         draw_screen_buffer(&screen_buffer, screen_width, screen_height);
-        
+
         let mut stdout = stdout().into_raw_mode().unwrap();
 
         let c = stdin.keys().next();
-        println!("{:#?}",c);
-        if c.is_some(){
+        if c.is_some() {
             let c = c.unwrap().unwrap();
             match c {
                 Key::Char('q') => {
@@ -198,7 +237,7 @@ fn main() {
                 _ => {}
             }
         }
-    
+
         stdout.flush().unwrap();
         snake_direction = match snake_direction {
             -1 => 3,
