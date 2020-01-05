@@ -60,6 +60,41 @@ fn add_game_border_to_buffer(
     }
 }
 
+fn add_snake_to_buffer(
+    screen_buffer: &mut Vec<char>,
+    snake: &Vec<Coordinate>,
+    screen_width: usize,
+) {
+    let snake_head_symbol = '@';
+    let snake_body_symbol = 'o';
+
+    set_buffer_at(
+        screen_buffer,
+        screen_width,
+        snake[0].row,
+        snake[0].col,
+        snake_head_symbol,
+    );
+
+    // only use rest of the body
+    let snake_body: Vec<&Coordinate> = snake
+        .into_iter()
+        .enumerate()
+        .filter(|&(i, _)| i != 0)
+        .map(|(_, v)| v)
+        .collect();
+
+    for coord in snake_body {
+        set_buffer_at(
+            screen_buffer,
+            screen_width,
+            coord.row,
+            coord.col,
+            snake_body_symbol,
+        )
+    }
+}
+
 fn set_buffer_at(
     screen_buffer: &mut Vec<char>,
     screen_width: usize,
@@ -91,10 +126,17 @@ fn main() {
         food_pos.col,
         'O',
     );
-    add_game_border_to_buffer(&mut screen_buffer, screen_width, screen_height);
+
+    let mut snake = vec![
+        Coordinate { row: 20, col: 15 },
+        Coordinate { row: 19, col: 15 },
+        Coordinate { row: 18, col: 15 },
+    ];
 
     loop {
         // draw screen buffer
+        add_snake_to_buffer(&mut screen_buffer, &snake, screen_width);
+        add_game_border_to_buffer(&mut screen_buffer, screen_width, screen_height);
         draw_screen_buffer(&screen_buffer, screen_width, screen_height);
 
         let stdin = stdin();
