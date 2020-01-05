@@ -4,6 +4,7 @@ use std::io::{stdin, stdout, Write};
 use std::thread;
 use std::time::Duration;
 use termion::event::Key;
+use termion::async_stdin;
 use termion::input::TermRead;
 use termion::raw::IntoRawMode;
 
@@ -163,36 +164,41 @@ fn main() {
 
     // 0: up, 1: right, 2: down, 3: left
     let mut snake_direction = 0;
-
+    
     loop {
         // limit speed
+        let stdin = async_stdin();
         thread::sleep(Duration::from_millis(200));
-
+        
         // move snake
         move_snake(&mut snake, snake_direction);
-
+        
         // clear, update and draw screen buffer
         clear_screen_buffer(&mut screen_buffer);
-
+        
         add_snake_to_buffer(&mut screen_buffer, &snake, screen_width);
         add_game_border_to_buffer(&mut screen_buffer, screen_width, screen_height);
         draw_screen_buffer(&screen_buffer, screen_width, screen_height);
-
-        let stdin = stdin();
+        
         let mut stdout = stdout().into_raw_mode().unwrap();
 
-        let c = stdin.keys().nth(0).unwrap();
-        match c.unwrap() {
-            Key::Char('q') => {
-                break;
+        let c = stdin.keys().next();
+        println!("{:#?}",c);
+        if c.is_some(){
+            let c = c.unwrap().unwrap();
+            match c {
+                Key::Char('q') => {
+                    break;
+                }
+                Key::Esc => {
+                    break;
+                }
+                Key::Left => snake_direction -= 1,
+                Key::Right => snake_direction += 1,
+                _ => {}
             }
-            Key::Esc => {
-                break;
-            }
-            Key::Left => snake_direction -= 1,
-            Key::Right => snake_direction += 1,
-            _ => {}
         }
+    
         stdout.flush().unwrap();
         snake_direction = match snake_direction {
             -1 => 3,
