@@ -1,13 +1,6 @@
-extern crate termion;
-
 use rand::Rng;
-use std::io::{stdout, Write};
 use std::thread;
-use std::time::{Duration, Instant};
-use termion::async_stdin;
-use termion::event::Key;
-use termion::input::TermRead;
-use termion::raw::IntoRawMode;
+use std::time::Duration;
 
 use device_query::{DeviceQuery, DeviceState};
 
@@ -39,7 +32,8 @@ fn add_game_border_to_buffer(
     screen_width: usize,
     screen_height: usize,
 ) {
-    let vert_border_symbol = '_';
+    let upper_vert_border_symbol = '_';
+    let lower_vert_border_symbol = '‾';
     let hor_border_symbol = '|';
 
     for row in 0..screen_height {
@@ -53,13 +47,19 @@ fn add_game_border_to_buffer(
         );
     }
     for col in 0..screen_width {
-        set_buffer_at(screen_buffer, screen_width, 0, col, vert_border_symbol);
+        set_buffer_at(
+            screen_buffer,
+            screen_width,
+            0,
+            col,
+            upper_vert_border_symbol,
+        );
         set_buffer_at(
             screen_buffer,
             screen_width,
             screen_height - 1,
             col,
-            vert_border_symbol,
+            lower_vert_border_symbol,
         );
     }
 }
@@ -150,8 +150,8 @@ fn snake_item_collision(snake: &[Coordinate], item: &Coordinate) -> bool {
 
 fn get_random_food_pos(screen_height: usize, screen_width: usize) -> Coordinate {
     let mut rng = rand::thread_rng();
-    let row = rng.gen_range(1, screen_height);
-    let col = rng.gen_range(1, screen_width);
+    let row = rng.gen_range(1, screen_height - 1);
+    let col = rng.gen_range(1, screen_width - 1);
     return Coordinate { row: row, col: col };
 }
 
@@ -183,7 +183,6 @@ fn main() {
         loop {
             let keys = device_state.get_keys();
             if !keys.is_empty() && keys != prev_keys {
-                println!("Sending stuff!");
                 tx.send(keys.clone()).unwrap();
             }
             prev_keys = keys.clone();
@@ -191,7 +190,6 @@ fn main() {
     });
 
     loop {
-        // let stdin = async_stdin();
         let sleep_time = if snake_direction % 2 == 1 { 120 } else { 200 };
         thread::sleep(Duration::from_millis(sleep_time));
 
@@ -240,31 +238,12 @@ fn main() {
         add_game_border_to_buffer(&mut screen_buffer, screen_width, screen_height);
         draw_screen_buffer(&screen_buffer, screen_width, screen_height);
 
-        //let mut stdout = stdout().into_raw_mode().unwrap();
-
-        // let start = Instant::now();
-        // while start.elapsed()< Duration::from_millis(200) {
-        // }
         let keys = &rx.try_recv();
         if !keys.is_err() {
             let keys = keys.clone().unwrap();
 
-            /*
-            for el in &rx {
-                println!("Checking!");
-                for key in el {
-                    println!("Received key!");
-                    last_key = Some(key);
-                }
-                println!("Iteration finished!");
-                break;
-            }
-            */
-            println!("Left loop!");
-
             if !keys.is_empty() && keys.last().is_some() {
-                let last_key_un = keys.last();
-                let last_key_un = last_key_un.unwrap();
+                let last_key_un = keys.last().unwrap();
                 match last_key_un {
                     device_query::Keycode::Q => {
                         break;
@@ -278,26 +257,6 @@ fn main() {
                 }
             }
         }
-        //let c = stdin.keys().next();
-        /*
-        let c = stdin.keys().next();
-        if c.is_some() {
-            let c = c.unwrap().unwrap();
-            match c {
-                Key::Char('q') => {
-                    break;
-                }
-                Key::Esc => {
-                    break;
-                }
-                Key::Left => snake_direction -= 1,
-                Key::Right => snake_direction += 1,
-                _ => {}
-            }
-        }
-
-        stdout.flush().unwrap();
-        */
         snake_direction = match snake_direction {
             -1 => 3,
             _ => snake_direction % 4,
