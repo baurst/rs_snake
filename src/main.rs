@@ -3,7 +3,7 @@ extern crate termion;
 use rand::Rng;
 use std::io::{stdout, Write};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use termion::async_stdin;
 use termion::event::Key;
 use termion::input::TermRead;
@@ -171,9 +171,9 @@ fn main() {
     let mut snake_direction = 0;
 
     loop {
-        // limit speed, crude but sufficient
         let stdin = async_stdin();
-        thread::sleep(Duration::from_millis(200));
+        let sleep_time = if snake_direction % 2 == 1 { 120 } else { 200 };
+        thread::sleep(Duration::from_millis(sleep_time));
 
         // move snake
         move_snake(&mut snake, snake_direction);
@@ -221,6 +221,10 @@ fn main() {
         draw_screen_buffer(&screen_buffer, screen_width, screen_height);
 
         let mut stdout = stdout().into_raw_mode().unwrap();
+
+        // let start = Instant::now();
+        // while start.elapsed()< Duration::from_millis(200) {
+        // }
 
         let c = stdin.keys().next();
         if c.is_some() {
