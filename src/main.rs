@@ -9,6 +9,10 @@ use termion::event::Key;
 use termion::input::TermRead;
 use termion::raw::IntoRawMode;
 
+use device_query::{DeviceQuery, DeviceState};
+
+use std::sync::mpsc;
+
 #[derive(PartialEq, Clone, Copy, Debug)]
 struct Coordinate {
     row: usize,
@@ -169,6 +173,21 @@ fn main() {
 
     // 0: up, 1: right, 2: down, 3: left
     let mut snake_direction = 0;
+
+    let (tx, rx) = mpsc::channel();
+
+    thread::spawn(move || {
+        let device_state = DeviceState::new();
+        let mut prev_keys = device_state.get_keys();
+
+        loop {
+            let keys = device_state.get_keys();
+            if keys != prev_keys && !keys.is_empty() {
+                tx.send(keys.clone()).unwrap();
+            }
+            prev_keys = keys.clone();
+        }
+    });
 
     loop {
         let stdin = async_stdin();
