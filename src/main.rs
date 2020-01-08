@@ -99,6 +99,19 @@ fn add_snake_to_buffer(
     }
 }
 
+fn add_header_to_buffer(screen_buffer: &mut Vec<char>, screen_width: usize, message: &str) {
+    let str_chars = message.chars();
+    let str_len = str_chars.clone().count();
+    let header_start_idx = ((screen_width - str_len) / 2 as usize).max(0);
+
+    let mut col_idx = header_start_idx;
+
+    for sym in str_chars {
+        set_buffer_at(screen_buffer, screen_width, 0, col_idx, sym);
+        col_idx += 1;
+    }
+}
+
 fn set_buffer_at(
     screen_buffer: &mut Vec<char>,
     screen_width: usize,
@@ -156,7 +169,7 @@ fn get_random_food_pos(screen_height: usize, screen_width: usize) -> Coordinate 
 }
 
 fn main() {
-    let screen_width = 40;
+    let screen_width = 80;
     let screen_height = 30;
     let mut screen_buffer = vec!['.'; screen_width * screen_height];
 
@@ -188,7 +201,7 @@ fn main() {
             prev_keys = keys.clone();
         }
     });
-
+    let mut score = 0;
     loop {
         let sleep_time = if snake_direction % 2 == 1 { 120 } else { 200 };
         thread::sleep(Duration::from_millis(sleep_time));
@@ -197,6 +210,7 @@ fn main() {
         move_snake(&mut snake, snake_direction);
 
         if snake[0] == food_pos {
+            score += 1;
             // place new food
             let mut new_food_pos = get_random_food_pos(screen_height, screen_width);
             while snake_item_collision(&snake, &new_food_pos) {
@@ -219,7 +233,9 @@ fn main() {
         {
             clear_screen_buffer(&mut screen_buffer);
             draw_screen_buffer(&screen_buffer, screen_width, screen_height);
+            draw_screen_buffer(&screen_buffer, screen_width, screen_height);
             println!("Snake has hit something - Game over!");
+            println!("Total score: {}", score);
             break;
         }
 
@@ -236,6 +252,11 @@ fn main() {
 
         add_snake_to_buffer(&mut screen_buffer, &snake, screen_width);
         add_game_border_to_buffer(&mut screen_buffer, screen_width, screen_height);
+        add_header_to_buffer(
+            &mut screen_buffer,
+            screen_width,
+            &format!("SNAKE - Score: {}", score),
+        );
         draw_screen_buffer(&screen_buffer, screen_width, screen_height);
 
         let keys = &rx.try_recv();
