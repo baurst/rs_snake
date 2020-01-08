@@ -206,6 +206,30 @@ fn main() {
         let sleep_time = if snake_direction % 2 == 1 { 120 } else { 200 };
         thread::sleep(Duration::from_millis(sleep_time));
 
+        let keys = &rx.try_recv();
+        if !keys.is_err() {
+            let keys = keys.clone().unwrap();
+
+            if !keys.is_empty() && keys.last().is_some() {
+                let last_key_un = keys.last().unwrap();
+                match last_key_un {
+                    device_query::Keycode::Q => {
+                        break;
+                    }
+                    device_query::Keycode::Escape => {
+                        break;
+                    }
+                    device_query::Keycode::A => snake_direction -= 1,
+                    device_query::Keycode::D => snake_direction += 1,
+                    _ => {}
+                }
+            }
+        }
+        snake_direction = match snake_direction {
+            -1 => 3,
+            _ => snake_direction % 4,
+        };
+
         // move snake
         move_snake(&mut snake, snake_direction);
 
@@ -258,29 +282,5 @@ fn main() {
             &format!("SNAKE - Score: {}", score),
         );
         draw_screen_buffer(&screen_buffer, screen_width, screen_height);
-
-        let keys = &rx.try_recv();
-        if !keys.is_err() {
-            let keys = keys.clone().unwrap();
-
-            if !keys.is_empty() && keys.last().is_some() {
-                let last_key_un = keys.last().unwrap();
-                match last_key_un {
-                    device_query::Keycode::Q => {
-                        break;
-                    }
-                    device_query::Keycode::Escape => {
-                        break;
-                    }
-                    device_query::Keycode::A => snake_direction -= 1,
-                    device_query::Keycode::D => snake_direction += 1,
-                    _ => {}
-                }
-            }
-        }
-        snake_direction = match snake_direction {
-            -1 => 3,
-            _ => snake_direction % 4,
-        };
     }
 }
