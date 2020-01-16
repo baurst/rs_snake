@@ -99,7 +99,12 @@ fn add_snake_to_buffer(
     }
 }
 
-fn add_header_to_buffer(screen_buffer: &mut Vec<char>, screen_width: usize, message: &str) {
+fn add_centered_text_to_buffer(
+    screen_buffer: &mut Vec<char>,
+    screen_width: usize,
+    target_row: usize,
+    message: &str,
+) {
     let str_chars = message.chars();
     let str_len = str_chars.clone().count();
     let header_start_idx = ((screen_width - str_len) / 2 as usize).max(0);
@@ -107,7 +112,7 @@ fn add_header_to_buffer(screen_buffer: &mut Vec<char>, screen_width: usize, mess
     let mut col_idx = header_start_idx;
 
     for sym in str_chars {
-        set_buffer_at(screen_buffer, screen_width, 0, col_idx, sym);
+        set_buffer_at(screen_buffer, screen_width, target_row, col_idx, sym);
         col_idx += 1;
     }
 }
@@ -130,25 +135,30 @@ fn move_snake(snake: &mut Vec<Coordinate>, snake_direction: i64) {
     // add head in new direction
     let new_head = match snake_direction {
         0 => Coordinate {
+            // up
             row: snake[0].row - 1,
             col: snake[0].col,
-        }, // up
+        },
         1 => Coordinate {
+            // right
             row: snake[0].row,
             col: snake[0].col + 1,
-        }, // right
+        },
         2 => Coordinate {
+            // down
             row: snake[0].row + 1,
             col: snake[0].col,
-        }, // down
+        },
         3 => Coordinate {
+            // left
             row: snake[0].row,
             col: snake[0].col - 1,
-        }, // left
+        },
         _ => Coordinate {
+            // no movement at all, invalid direction
             row: snake[0].row,
             col: snake[0].col,
-        }, // no movement at all, invalid direction
+        },
     };
 
     snake.insert(0, new_head);
@@ -189,6 +199,7 @@ fn main() {
 
     let (tx, rx) = mpsc::channel();
 
+    // seperate thread to deal with keyboard input
     thread::spawn(move || {
         let device_state = DeviceState::new();
         let mut prev_keys = device_state.get_keys();
@@ -202,10 +213,24 @@ fn main() {
         }
     });
     let mut score = 0;
-    loop {
-        let sleep_time = if snake_direction % 2 == 1 { 120 } else { 200 };
-        thread::sleep(Duration::from_millis(sleep_time));
+    let mut game_loop_begin = std::time::SystemTime::now();
+    let mut game_loop_end = std::time::SystemTime::now();
+    let horizontal_target_cycle_time = Duration::from_millis(80);
+    let vertical_target_cycle_time = Duration::from_millis(160);
 
+    loop {
+        // ensure constant cycle time of game loop (i.e. constant snake speed)
+        let game_loop_runtime = game_loop_end.duration_since(game_loop_begin).unwrap();
+        let target_cycle_time = if snake_direction % 2 == 1 {
+            horizontal_target_cycle_time
+        } else {
+            vertical_target_cycle_time
+        };
+        let sleep_time =
+            (target_cycle_time - game_loop_runtime).max(std::time::Duration::from_millis(0));
+        thread::sleep(sleep_time);
+
+        game_loop_begin = std::time::SystemTime::now();
         let keys = &rx.try_recv();
         if !keys.is_err() {
             let keys = keys.clone().unwrap();
@@ -230,7 +255,6 @@ fn main() {
             _ => snake_direction % 4,
         };
 
-        // move snake
         move_snake(&mut snake, snake_direction);
 
         if snake[0] == food_pos {
@@ -255,11 +279,6 @@ fn main() {
             || snake[0].col == screen_width - 1
             || snake_item_collision(&snake[1..], &snake[0])
         {
-            clear_screen_buffer(&mut screen_buffer);
-            draw_screen_buffer(&screen_buffer, screen_width, screen_height);
-            draw_screen_buffer(&screen_buffer, screen_width, screen_height);
-            println!("Snake has hit something - Game over!");
-            println!("Total score: {}", score);
             break;
         }
 
@@ -276,11 +295,33 @@ fn main() {
 
         add_snake_to_buffer(&mut screen_buffer, &snake, screen_width);
         add_game_border_to_buffer(&mut screen_buffer, screen_width, screen_height);
-        add_header_to_buffer(
+        add_centered_text_to_buffer(
             &mut screen_buffer,
             screen_width,
+            0,
             &format!("SNAKE - Score: {}", score),
         );
         draw_screen_buffer(&screen_buffer, screen_width, screen_height);
+
+        game_loop_end = std::time::SystemTime::now();
     }
+    // draw empty buffer
+    clear_screen_buffer(&mut screen_buffer);
+    draw_screen_buffer(&screen_buffer, screen_width, screen_height);
+
+    // draw buffer with score
+    add_centered_text_to_buffer(
+        &mut screen_buffer,
+        screen_width,
+        screen_height / 2,
+        "GAME OVER!",
+    );
+    add_centered_text_to_buffer(
+        &mut screen_buffer,
+        screen_width,
+        screen_height / 2 + 2,
+        &format!("Score: {}", score),
+    );
+
+    draw_screen_buffer(&screen_buffer, screen_width, screen_height);
 }
