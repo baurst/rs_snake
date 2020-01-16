@@ -305,11 +305,11 @@ fn main() {
 
         game_loop_end = std::time::SystemTime::now();
     }
+
     // draw empty buffer
     clear_screen_buffer(&mut screen_buffer);
     draw_screen_buffer(&screen_buffer, screen_width, screen_height);
 
-    // draw buffer with score
     add_centered_text_to_buffer(
         &mut screen_buffer,
         screen_width,
@@ -324,4 +324,10 @@ fn main() {
     );
 
     draw_screen_buffer(&screen_buffer, screen_width, screen_height);
+
+    {
+        use std::io::{stdin, Read};
+        let mut buffer = String::new();
+        stdin().read_to_string(&mut buffer).unwrap();
+    }
 }
