@@ -63,7 +63,7 @@ impl<T: Send + Copy> EventQueue<T> {
 
 fn send_events(event_queue: EventQueue<KeyEvent>) -> crossterm::Result<()> {
     loop {
-        if poll(Duration::from_millis(10))? {
+        if poll(Duration::from_millis(1))? {
             match read()? {
                 // will not block
                 Event::Key(event) => {
@@ -298,7 +298,7 @@ fn main() -> Result<()> {
     stdout.execute(terminal::Clear(terminal::ClearType::All))?;
 
     let screen_width = 60;
-    let screen_height = 30;
+    let screen_height = 40;
     let mut screen_buffer = vec!['.'; screen_width * screen_height];
 
     // clear screen
