@@ -2,9 +2,81 @@ use rand::Rng;
 use std::thread;
 use std::time::Duration;
 
-use device_query::{DeviceQuery, DeviceState};
+use std::io::stdout;
 
-use std::sync::mpsc;
+use crossterm::{
+    cursor::{self},
+    event::{poll, read, Event},
+    event::{KeyCode, KeyEvent},
+    style::{self, Colorize},
+    terminal::{self, disable_raw_mode, enable_raw_mode},
+    ExecutableCommand, QueueableCommand, Result,
+};
+
+use std::collections::VecDeque;
+use std::sync::Arc;
+use std::sync::Mutex;
+
+#[derive(Clone)]
+struct EventQueue<T: Send + Copy> {
+    inner: Arc<Mutex<VecDeque<T>>>,
+}
+
+impl<T: Send + Copy> EventQueue<T> {
+    fn new() -> Self {
+        Self {
+            inner: Arc::new(Mutex::new(VecDeque::new())),
+        }
+    }
+
+    fn _get_event(&self) -> Option<T> {
+        let maybe_queue = self.inner.lock();
+
+        if let Ok(mut queue) = maybe_queue {
+            queue.pop_front()
+        } else {
+            panic!("poisoned mutex");
+        }
+    }
+
+    fn get_latest_event(&self) -> Option<T> {
+        let maybe_queue = self.inner.lock();
+
+        if let Ok(mut queue) = maybe_queue {
+            let el = queue.pop_back();
+            queue.clear();
+            return el;
+        } else {
+            panic!("poisoned mutex");
+        }
+    }
+
+    fn add_event(&self, event: T) -> usize {
+        if let Ok(mut queue) = self.inner.lock() {
+            queue.push_back(event);
+            queue.len()
+        } else {
+            panic!("poisoned mutex");
+        }
+    }
+}
+
+fn send_events(event_queue: EventQueue<KeyEvent>) -> crossterm::Result<()> {
+    loop {
+        if poll(Duration::from_millis(10))? {
+            match read()? {
+                // will not block
+                Event::Key(event) => {
+                    event_queue.add_event(event);
+                }
+                Event::Mouse(_event) => {}
+                Event::Resize(_width, _height) => {}
+            }
+        } else {
+            // timeout expired
+        }
+    }
+}
 
 #[derive(PartialEq, Clone, Copy, Debug)]
 struct Coordinate {
@@ -14,17 +86,51 @@ struct Coordinate {
 
 fn clear_screen_buffer(screen_buffer: &mut Vec<char>) {
     for screen_char in screen_buffer {
-        *screen_char = ' ';
+        *screen_char = '?';
     }
 }
 
-fn draw_screen_buffer(screen_buffer: &Vec<char>, screen_width: usize, screen_height: usize) {
+fn draw_screen_buffer(
+    screen_buffer: &Vec<char>,
+    stdout: &mut std::io::Stdout,
+    screen_width: usize,
+    screen_height: usize,
+) -> Result<()> {
     for row in 0..screen_height {
         for col in 0..screen_width {
-            print!("{}", get_buffer_at(screen_buffer, screen_width, row, col));
+            let content_char = get_buffer_at(screen_buffer, screen_width, row, col);
+            match content_char {
+                '‾' | '_' | '|' => {
+                    stdout
+                        .queue(cursor::MoveTo(col as u16, row as u16))?
+                        .queue(style::PrintStyledContent("█".dark_blue()))?;
+                }
+                '@' | 'o' => {
+                    stdout
+                        .queue(cursor::MoveTo(col as u16, row as u16))?
+                        .queue(style::PrintStyledContent("█".dark_green()))?;
+                }
+                'x' => {
+                    stdout
+                        .queue(cursor::MoveTo(col as u16, row as u16))?
+                        .queue(style::PrintStyledContent("█".red()))?;
+                }
+                '?' => {
+                    stdout
+                        .queue(cursor::MoveTo(col as u16, row as u16))?
+                        .queue(style::PrintStyledContent("█".dark_grey()))?;
+                }
+                _ => {
+                    /*
+                        stdout
+                        .queue(cursor::MoveTo(col as u16, row as u16))?
+                        .queue(style::PrintStyledContent(content_char.grey()))?;
+                    */
+                }
+            }
         }
-        print!("\n");
     }
+    Ok(())
 }
 
 fn add_game_border_to_buffer(
@@ -178,8 +284,20 @@ fn get_random_food_pos(screen_height: usize, screen_width: usize) -> Coordinate 
     return Coordinate { row: row, col: col };
 }
 
-fn main() {
-    let screen_width = 80;
+fn main() -> Result<()> {
+    let event_queue = EventQueue::new();
+    let thread_event_queue = event_queue.clone();
+
+    // seperate thread to deal with keyboard input
+    thread::spawn(move || send_events(thread_event_queue));
+
+    let mut stdout = stdout();
+    enable_raw_mode()?;
+    stdout.execute(cursor::Hide)?;
+
+    stdout.execute(terminal::Clear(terminal::ClearType::All))?;
+
+    let screen_width = 60;
     let screen_height = 30;
     let mut screen_buffer = vec!['.'; screen_width * screen_height];
 
@@ -197,26 +315,11 @@ fn main() {
     // 0: up, 1: right, 2: down, 3: left
     let mut snake_direction = 0;
 
-    let (tx, rx) = mpsc::channel();
-
-    // seperate thread to deal with keyboard input
-    thread::spawn(move || {
-        let device_state = DeviceState::new();
-        let mut prev_keys = device_state.get_keys();
-
-        loop {
-            let keys = device_state.get_keys();
-            if !keys.is_empty() && keys != prev_keys {
-                tx.send(keys.clone()).unwrap();
-            }
-            prev_keys = keys.clone();
-        }
-    });
     let mut score = 0;
     let mut game_loop_begin = std::time::SystemTime::now();
     let mut game_loop_end = std::time::SystemTime::now();
-    let horizontal_target_cycle_time = Duration::from_millis(80);
-    let vertical_target_cycle_time = Duration::from_millis(160);
+    let horizontal_target_cycle_time = Duration::from_millis(50);
+    let vertical_target_cycle_time = Duration::from_millis(75);
 
     loop {
         // ensure constant cycle time of game loop (i.e. constant snake speed)
@@ -231,25 +334,17 @@ fn main() {
         thread::sleep(sleep_time);
 
         game_loop_begin = std::time::SystemTime::now();
-        let keys = &rx.try_recv();
-        if !keys.is_err() {
-            let keys = keys.clone().unwrap();
-
-            if !keys.is_empty() && keys.last().is_some() {
-                let last_key_un = keys.last().unwrap();
-                match last_key_un {
-                    device_query::Keycode::Q => {
-                        break;
-                    }
-                    device_query::Keycode::Escape => {
-                        break;
-                    }
-                    device_query::Keycode::A => snake_direction -= 1,
-                    device_query::Keycode::D => snake_direction += 1,
-                    _ => {}
-                }
+        if let Some(event) = event_queue.get_latest_event() {
+            if event == KeyEvent::from(KeyCode::Esc) || event == KeyEvent::from(KeyCode::Char('q'))
+            {
+                break;
+            } else if event == KeyEvent::from(KeyCode::Left) {
+                snake_direction -= 1;
+            } else if event == KeyEvent::from(KeyCode::Right) {
+                snake_direction += 1;
             }
         }
+
         snake_direction = match snake_direction {
             -1 => 3,
             _ => snake_direction % 4,
@@ -290,7 +385,7 @@ fn main() {
             screen_width,
             food_pos.row,
             food_pos.col,
-            'O',
+            'x',
         );
 
         add_snake_to_buffer(&mut screen_buffer, &snake, screen_width);
@@ -301,14 +396,14 @@ fn main() {
             0,
             &format!("SNAKE - Score: {}", score),
         );
-        draw_screen_buffer(&screen_buffer, screen_width, screen_height);
+        draw_screen_buffer(&screen_buffer, &mut stdout, screen_width, screen_height)?;
 
         game_loop_end = std::time::SystemTime::now();
     }
 
     // draw empty buffer
     clear_screen_buffer(&mut screen_buffer);
-    draw_screen_buffer(&screen_buffer, screen_width, screen_height);
+    draw_screen_buffer(&screen_buffer, &mut stdout, screen_width, screen_height)?;
 
     add_centered_text_to_buffer(
         &mut screen_buffer,
@@ -323,11 +418,8 @@ fn main() {
         &format!("Score: {}", score),
     );
 
-    draw_screen_buffer(&screen_buffer, screen_width, screen_height);
-
-    {
-        use std::io::{stdin, Read};
-        let mut buffer = String::new();
-        stdin().read_to_string(&mut buffer).unwrap();
-    }
+    draw_screen_buffer(&screen_buffer, &mut stdout, screen_width, screen_height)?;
+    stdout.execute(cursor::Show)?;
+    stdout.execute(terminal::Clear(terminal::ClearType::All))?;
+    disable_raw_mode()
 }
