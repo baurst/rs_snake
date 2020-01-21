@@ -2,7 +2,7 @@ use rand::Rng;
 use std::thread;
 use std::time::Duration;
 
-use std::io::stdout;
+use std::io::{stdout, Write};
 
 use crossterm::{
     cursor::{self},
@@ -63,7 +63,7 @@ impl<T: Send + Copy> EventQueue<T> {
 
 fn send_events(event_queue: EventQueue<KeyEvent>) -> crossterm::Result<()> {
     loop {
-        if poll(Duration::from_millis(1))? {
+        if poll(Duration::from_millis(3))? {
             match read()? {
                 // will not block
                 Event::Key(event) => {
@@ -96,40 +96,43 @@ fn draw_screen_buffer(
     screen_width: usize,
     screen_height: usize,
 ) -> Result<()> {
-    for row in 0..screen_height {
-        for col in 0..screen_width {
-            let content_char = get_buffer_at(screen_buffer, screen_width, row, col);
+    for row_idx in 0..screen_height {
+        for col_idx in 0..screen_width {
+            let content_char = get_buffer_at(&screen_buffer, screen_width, row_idx, col_idx);
+            let content_char = content_char.clone();
             match content_char {
                 '‾' | '_' | '|' => {
                     stdout
-                        .queue(cursor::MoveTo(col as u16, row as u16))?
+                        .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
                         .queue(style::PrintStyledContent("█".dark_blue()))?;
                 }
-                '@' | 'o' => {
+                '@' | '!' => {
                     stdout
-                        .queue(cursor::MoveTo(col as u16, row as u16))?
+                        .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
                         .queue(style::PrintStyledContent("█".dark_green()))?;
                 }
                 'x' => {
                     stdout
-                        .queue(cursor::MoveTo(col as u16, row as u16))?
+                        .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
                         .queue(style::PrintStyledContent("█".red()))?;
                 }
                 '?' => {
                     stdout
-                        .queue(cursor::MoveTo(col as u16, row as u16))?
+                        .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
                         .queue(style::PrintStyledContent("█".dark_grey()))?;
                 }
                 _ => {
-                    /*
-                        stdout
-                        .queue(cursor::MoveTo(col as u16, row as u16))?
-                        .queue(style::PrintStyledContent(content_char.grey()))?;
-                    */
+                    let content_str: String = format!("{}", content_char);
+                    let styled_c: crossterm::style::StyledContent<String> =
+                        crossterm::style::style(content_str).red().on_dark_grey();
+                    stdout
+                        .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
+                        .queue(style::PrintStyledContent(styled_c))?;
                 }
             }
         }
     }
+    stdout.flush()?;
     Ok(())
 }
 
@@ -176,7 +179,7 @@ fn add_snake_to_buffer(
     screen_width: usize,
 ) {
     let snake_head_symbol = '@';
-    let snake_body_symbol = 'o';
+    let snake_body_symbol = '!';
 
     set_buffer_at(
         screen_buffer,
@@ -201,7 +204,7 @@ fn add_snake_to_buffer(
             coord.row,
             coord.col,
             snake_body_symbol,
-        )
+        );
     }
 }
 
@@ -288,7 +291,7 @@ fn main() -> Result<()> {
     let event_queue = EventQueue::new();
     let thread_event_queue = event_queue.clone();
 
-    // seperate thread to deal with keyboard input
+    // launch seperate thread to deal with keyboard input
     thread::spawn(move || send_events(thread_event_queue));
 
     let mut stdout = stdout();
@@ -298,10 +301,36 @@ fn main() -> Result<()> {
     stdout.execute(terminal::Clear(terminal::ClearType::All))?;
 
     let screen_width = 60;
-    let screen_height = 40;
+    let screen_height = 30;
     let mut screen_buffer = vec!['.'; screen_width * screen_height];
 
     // clear screen
+    clear_screen_buffer(&mut screen_buffer);
+
+    add_centered_text_to_buffer(
+        &mut screen_buffer,
+        screen_width,
+        screen_height / 2 - 2,
+        "SNAKE",
+    );
+    add_centered_text_to_buffer(
+        &mut screen_buffer,
+        screen_width,
+        screen_height / 2,
+        "steer using left and right arrow keys",
+    );
+
+    for n in (0..5).rev() {
+        add_centered_text_to_buffer(
+            &mut screen_buffer,
+            screen_width,
+            screen_height / 2 + 2,
+            &format!("Starting in {}", n),
+        );
+        draw_screen_buffer(&screen_buffer, &mut stdout, screen_width, screen_height)?;
+        thread::sleep(Duration::from_secs(1));
+    }
+
     clear_screen_buffer(&mut screen_buffer);
 
     let mut food_pos = Coordinate { row: 10, col: 15 };
@@ -408,18 +437,17 @@ fn main() -> Result<()> {
     add_centered_text_to_buffer(
         &mut screen_buffer,
         screen_width,
-        screen_height / 2,
-        "GAME OVER!",
+        screen_height / 2 - 2,
+        "GAME OVER",
     );
     add_centered_text_to_buffer(
         &mut screen_buffer,
         screen_width,
         screen_height / 2 + 2,
-        &format!("Score: {}", score),
+        &format!("Final Score: {}", score),
     );
 
     draw_screen_buffer(&screen_buffer, &mut stdout, screen_width, screen_height)?;
     stdout.execute(cursor::Show)?;
-    stdout.execute(terminal::Clear(terminal::ClearType::All))?;
     disable_raw_mode()
 }
