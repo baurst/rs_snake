@@ -308,159 +308,177 @@ fn main() -> Result<()> {
 
     let screen_width = 60;
     let screen_height = 30;
-    let mut screen_buffer = vec![GameContent::Empty; screen_width * screen_height];
 
-    // clear screen
-    clear_screen_buffer(&mut screen_buffer);
+    let mut must_exit = false;
 
-    add_centered_text_to_buffer(
-        &mut screen_buffer,
-        screen_width,
-        screen_height / 2 - 2,
-        "SNAKE",
-    );
-    add_centered_text_to_buffer(
-        &mut screen_buffer,
-        screen_width,
-        screen_height / 2,
-        "steer using left and right arrow keys",
-    );
+    while !must_exit {
+        let mut screen_buffer = vec![GameContent::Empty; screen_width * screen_height];
 
-    add_centered_text_to_buffer(
-        &mut screen_buffer,
-        screen_width,
-        screen_height / 2 + 4,
-        "ESC to stop",
-    );
+        // clear screen
+        clear_screen_buffer(&mut screen_buffer);
 
-    for n in (0..5).rev() {
+        add_centered_text_to_buffer(
+            &mut screen_buffer,
+            screen_width,
+            screen_height / 2 - 2,
+            "SNAKE",
+        );
+        add_centered_text_to_buffer(
+            &mut screen_buffer,
+            screen_width,
+            screen_height / 2,
+            "steer using left and right arrow keys",
+        );
+
+        add_centered_text_to_buffer(
+            &mut screen_buffer,
+            screen_width,
+            screen_height / 2 + 4,
+            "ESC to stop",
+        );
+
+        for n in (0..5).rev() {
+            add_centered_text_to_buffer(
+                &mut screen_buffer,
+                screen_width,
+                screen_height / 2 + 2,
+                &format!("Starting in {}", n),
+            );
+            draw_screen_buffer(&screen_buffer, &mut stdout, screen_width, screen_height)?;
+            thread::sleep(Duration::from_secs(1));
+        }
+
+        clear_screen_buffer(&mut screen_buffer);
+
+        let mut food_pos = Coordinate { row: 10, col: 15 };
+
+        let mut snake = vec![
+            Coordinate { row: 18, col: 15 },
+            Coordinate { row: 19, col: 15 },
+            Coordinate { row: 20, col: 15 },
+        ];
+
+        // 0: up, 1: right, 2: down, 3: left
+        let mut snake_direction = 0;
+
+        let mut score = 0;
+        let mut game_loop_begin = std::time::SystemTime::now();
+        let mut game_loop_end = std::time::SystemTime::now();
+        let horizontal_target_cycle_time = Duration::from_millis(50);
+        let vertical_target_cycle_time = Duration::from_millis(75);
+
+        loop {
+            // ensure constant cycle time of game loop (i.e. constant snake speed)
+            let game_loop_runtime = game_loop_end.duration_since(game_loop_begin).unwrap();
+            let target_cycle_time = if snake_direction % 2 == 1 {
+                horizontal_target_cycle_time
+            } else {
+                vertical_target_cycle_time
+            };
+            let sleep_time =
+                (target_cycle_time - game_loop_runtime).max(std::time::Duration::from_millis(0));
+            thread::sleep(sleep_time);
+
+            game_loop_begin = std::time::SystemTime::now();
+            if let Some(event) = event_queue.get_latest_event() {
+                if event == KeyEvent::from(KeyCode::Esc)
+                    || event == KeyEvent::from(KeyCode::Char('q'))
+                {
+                    must_exit = true;
+                    break;
+                } else if event == KeyEvent::from(KeyCode::Left) {
+                    snake_direction -= 1;
+                } else if event == KeyEvent::from(KeyCode::Right) {
+                    snake_direction += 1;
+                }
+            }
+
+            snake_direction = match snake_direction {
+                -1 => 3,
+                _ => snake_direction % 4,
+            };
+
+            move_snake(&mut snake, snake_direction);
+
+            if snake[0] == food_pos {
+                score += 1;
+                // place new food
+                let mut new_food_pos = get_random_food_pos(screen_height, screen_width);
+                while snake_item_collision(&snake, &new_food_pos) {
+                    new_food_pos = get_random_food_pos(screen_height, screen_width);
+                }
+                food_pos = new_food_pos;
+
+                // grow snake
+                for _i in 0..2 {
+                    snake.push(*snake.last().unwrap());
+                }
+            }
+
+            // check for collisions
+            if snake[0].row == 0
+                || snake[0].row == screen_height - 1
+                || snake[0].col == 0
+                || snake[0].col == screen_width - 1
+                || snake_item_collision(&snake[1..], &snake[0])
+            {
+                break;
+            }
+
+            // clear, update and draw screen buffer
+            clear_screen_buffer(&mut screen_buffer);
+
+            set_buffer_at(
+                &mut screen_buffer,
+                screen_width,
+                food_pos.row,
+                food_pos.col,
+                GameContent::Food,
+            );
+
+            add_snake_to_buffer(&mut screen_buffer, &snake, screen_width);
+            add_game_border_to_buffer(&mut screen_buffer, screen_width, screen_height);
+            add_centered_text_to_buffer(
+                &mut screen_buffer,
+                screen_width,
+                0,
+                &format!("SNAKE - Score: {}", score),
+            );
+            draw_screen_buffer(&screen_buffer, &mut stdout, screen_width, screen_height)?;
+
+            game_loop_end = std::time::SystemTime::now();
+        }
+
+        // draw empty buffer
+        clear_screen_buffer(&mut screen_buffer);
+        draw_screen_buffer(&screen_buffer, &mut stdout, screen_width, screen_height)?;
+
+        add_centered_text_to_buffer(
+            &mut screen_buffer,
+            screen_width,
+            screen_height / 2 - 2,
+            "GAME OVER",
+        );
         add_centered_text_to_buffer(
             &mut screen_buffer,
             screen_width,
             screen_height / 2 + 2,
-            &format!("Starting in {}", n),
+            &format!("Final Score: {}", score),
         );
+        if !must_exit {
+            add_centered_text_to_buffer(
+                &mut screen_buffer,
+                screen_width,
+                screen_height / 2 + 4,
+                "Restarting...",
+            );
+        }
+
         draw_screen_buffer(&screen_buffer, &mut stdout, screen_width, screen_height)?;
-        thread::sleep(Duration::from_secs(1));
+        if !must_exit {
+            thread::sleep(Duration::from_secs(5));
+        }
     }
-
-    clear_screen_buffer(&mut screen_buffer);
-
-    let mut food_pos = Coordinate { row: 10, col: 15 };
-
-    let mut snake = vec![
-        Coordinate { row: 18, col: 15 },
-        Coordinate { row: 19, col: 15 },
-        Coordinate { row: 20, col: 15 },
-    ];
-
-    // 0: up, 1: right, 2: down, 3: left
-    let mut snake_direction = 0;
-
-    let mut score = 0;
-    let mut game_loop_begin = std::time::SystemTime::now();
-    let mut game_loop_end = std::time::SystemTime::now();
-    let horizontal_target_cycle_time = Duration::from_millis(50);
-    let vertical_target_cycle_time = Duration::from_millis(75);
-
-    loop {
-        // ensure constant cycle time of game loop (i.e. constant snake speed)
-        let game_loop_runtime = game_loop_end.duration_since(game_loop_begin).unwrap();
-        let target_cycle_time = if snake_direction % 2 == 1 {
-            horizontal_target_cycle_time
-        } else {
-            vertical_target_cycle_time
-        };
-        let sleep_time =
-            (target_cycle_time - game_loop_runtime).max(std::time::Duration::from_millis(0));
-        thread::sleep(sleep_time);
-
-        game_loop_begin = std::time::SystemTime::now();
-        if let Some(event) = event_queue.get_latest_event() {
-            if event == KeyEvent::from(KeyCode::Esc) || event == KeyEvent::from(KeyCode::Char('q'))
-            {
-                break;
-            } else if event == KeyEvent::from(KeyCode::Left) {
-                snake_direction -= 1;
-            } else if event == KeyEvent::from(KeyCode::Right) {
-                snake_direction += 1;
-            }
-        }
-
-        snake_direction = match snake_direction {
-            -1 => 3,
-            _ => snake_direction % 4,
-        };
-
-        move_snake(&mut snake, snake_direction);
-
-        if snake[0] == food_pos {
-            score += 1;
-            // place new food
-            let mut new_food_pos = get_random_food_pos(screen_height, screen_width);
-            while snake_item_collision(&snake, &new_food_pos) {
-                new_food_pos = get_random_food_pos(screen_height, screen_width);
-            }
-            food_pos = new_food_pos;
-
-            // grow snake
-            for _i in 0..2 {
-                snake.push(*snake.last().unwrap());
-            }
-        }
-
-        // check for collisions
-        if snake[0].row == 0
-            || snake[0].row == screen_height - 1
-            || snake[0].col == 0
-            || snake[0].col == screen_width - 1
-            || snake_item_collision(&snake[1..], &snake[0])
-        {
-            break;
-        }
-
-        // clear, update and draw screen buffer
-        clear_screen_buffer(&mut screen_buffer);
-
-        set_buffer_at(
-            &mut screen_buffer,
-            screen_width,
-            food_pos.row,
-            food_pos.col,
-            GameContent::Food,
-        );
-
-        add_snake_to_buffer(&mut screen_buffer, &snake, screen_width);
-        add_game_border_to_buffer(&mut screen_buffer, screen_width, screen_height);
-        add_centered_text_to_buffer(
-            &mut screen_buffer,
-            screen_width,
-            0,
-            &format!("SNAKE - Score: {}", score),
-        );
-        draw_screen_buffer(&screen_buffer, &mut stdout, screen_width, screen_height)?;
-
-        game_loop_end = std::time::SystemTime::now();
-    }
-
-    // draw empty buffer
-    clear_screen_buffer(&mut screen_buffer);
-    draw_screen_buffer(&screen_buffer, &mut stdout, screen_width, screen_height)?;
-
-    add_centered_text_to_buffer(
-        &mut screen_buffer,
-        screen_width,
-        screen_height / 2 - 2,
-        "GAME OVER",
-    );
-    add_centered_text_to_buffer(
-        &mut screen_buffer,
-        screen_width,
-        screen_height / 2 + 2,
-        &format!("Final Score: {}", score),
-    );
-
-    draw_screen_buffer(&screen_buffer, &mut stdout, screen_width, screen_height)?;
     stdout.execute(cursor::Show)?;
     disable_raw_mode()
 }
