@@ -22,6 +22,16 @@ struct EventQueue<T: Send + Copy> {
     inner: Arc<Mutex<VecDeque<T>>>,
 }
 
+#[derive(Clone, Copy, Debug)]
+enum GameContent {
+    SnakeHead,
+    SnakeBody,
+    Food,
+    Border,
+    Empty,
+    Character(char),
+}
+
 impl<T: Send + Copy> EventQueue<T> {
     fn new() -> Self {
         Self {
@@ -72,8 +82,6 @@ fn send_events(event_queue: EventQueue<KeyEvent>) -> crossterm::Result<()> {
                 Event::Mouse(_event) => {}
                 Event::Resize(_width, _height) => {}
             }
-        } else {
-            // timeout expired
         }
     }
 }
@@ -84,47 +92,47 @@ struct Coordinate {
     col: usize,
 }
 
-fn clear_screen_buffer(screen_buffer: &mut Vec<char>) {
+fn clear_screen_buffer(screen_buffer: &mut Vec<GameContent>) {
     for screen_char in screen_buffer {
-        *screen_char = '?';
+        *screen_char = GameContent::Empty;
     }
 }
 
 fn draw_screen_buffer(
-    screen_buffer: &Vec<char>,
+    screen_buffer: &Vec<GameContent>,
     stdout: &mut std::io::Stdout,
     screen_width: usize,
     screen_height: usize,
 ) -> Result<()> {
     for row_idx in 0..screen_height {
         for col_idx in 0..screen_width {
-            let content_char = get_buffer_at(&screen_buffer, screen_width, row_idx, col_idx);
-            let content_char = content_char.clone();
-            match content_char {
-                '‾' | '_' | '|' => {
+            let content = get_buffer_at(&screen_buffer, screen_width, row_idx, col_idx);
+            match content {
+                GameContent::Border => {
                     stdout
                         .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
                         .queue(style::PrintStyledContent("█".dark_blue()))?;
                 }
-                '@' | '!' => {
+                GameContent::SnakeHead | GameContent::SnakeBody => {
                     stdout
                         .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
                         .queue(style::PrintStyledContent("█".dark_green()))?;
                 }
-                'x' => {
+                GameContent::Food => {
                     stdout
                         .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
                         .queue(style::PrintStyledContent("█".red()))?;
                 }
-                '?' => {
+                GameContent::Empty => {
                     stdout
                         .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
                         .queue(style::PrintStyledContent("█".dark_grey()))?;
                 }
-                _ => {
-                    let content_str: String = format!("{}", content_char);
+                GameContent::Character(character) => {
                     let styled_c: crossterm::style::StyledContent<String> =
-                        crossterm::style::style(content_str).red().on_dark_grey();
+                        crossterm::style::style(character.to_string())
+                            .red()
+                            .on_dark_grey();
                     stdout
                         .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
                         .queue(style::PrintStyledContent(styled_c))?;
@@ -137,56 +145,43 @@ fn draw_screen_buffer(
 }
 
 fn add_game_border_to_buffer(
-    screen_buffer: &mut Vec<char>,
+    screen_buffer: &mut Vec<GameContent>,
     screen_width: usize,
     screen_height: usize,
 ) {
-    let upper_vert_border_symbol = '_';
-    let lower_vert_border_symbol = '‾';
-    let hor_border_symbol = '|';
-
     for row in 0..screen_height {
-        set_buffer_at(screen_buffer, screen_width, row, 0, hor_border_symbol);
+        set_buffer_at(screen_buffer, screen_width, row, 0, GameContent::Border);
         set_buffer_at(
             screen_buffer,
             screen_width,
             row,
             screen_width - 1,
-            hor_border_symbol,
+            GameContent::Border,
         );
     }
     for col in 0..screen_width {
-        set_buffer_at(
-            screen_buffer,
-            screen_width,
-            0,
-            col,
-            upper_vert_border_symbol,
-        );
+        set_buffer_at(screen_buffer, screen_width, 0, col, GameContent::Border);
         set_buffer_at(
             screen_buffer,
             screen_width,
             screen_height - 1,
             col,
-            lower_vert_border_symbol,
+            GameContent::Border,
         );
     }
 }
 
 fn add_snake_to_buffer(
-    screen_buffer: &mut Vec<char>,
+    screen_buffer: &mut Vec<GameContent>,
     snake: &Vec<Coordinate>,
     screen_width: usize,
 ) {
-    let snake_head_symbol = '@';
-    let snake_body_symbol = '!';
-
     set_buffer_at(
         screen_buffer,
         screen_width,
         snake[0].row,
         snake[0].col,
-        snake_head_symbol,
+        GameContent::SnakeHead,
     );
 
     // only use rest of the body
@@ -203,13 +198,13 @@ fn add_snake_to_buffer(
             screen_width,
             coord.row,
             coord.col,
-            snake_body_symbol,
+            GameContent::SnakeBody,
         );
     }
 }
 
 fn add_centered_text_to_buffer(
-    screen_buffer: &mut Vec<char>,
+    screen_buffer: &mut Vec<GameContent>,
     screen_width: usize,
     target_row: usize,
     message: &str,
@@ -221,22 +216,33 @@ fn add_centered_text_to_buffer(
     let mut col_idx = header_start_idx;
 
     for sym in str_chars {
-        set_buffer_at(screen_buffer, screen_width, target_row, col_idx, sym);
+        set_buffer_at(
+            screen_buffer,
+            screen_width,
+            target_row,
+            col_idx,
+            GameContent::Character(sym),
+        );
         col_idx += 1;
     }
 }
 
 fn set_buffer_at(
-    screen_buffer: &mut Vec<char>,
+    screen_buffer: &mut Vec<GameContent>,
     screen_width: usize,
     row: usize,
     col: usize,
-    sym: char,
+    content: GameContent,
 ) {
-    screen_buffer[col + row * screen_width] = sym;
+    screen_buffer[col + row * screen_width] = content;
 }
 
-fn get_buffer_at(screen_buffer: &Vec<char>, screen_width: usize, row: usize, col: usize) -> char {
+fn get_buffer_at(
+    screen_buffer: &Vec<GameContent>,
+    screen_width: usize,
+    row: usize,
+    col: usize,
+) -> GameContent {
     return screen_buffer[col + row * screen_width];
 }
 
@@ -302,7 +308,7 @@ fn main() -> Result<()> {
 
     let screen_width = 60;
     let screen_height = 30;
-    let mut screen_buffer = vec!['.'; screen_width * screen_height];
+    let mut screen_buffer = vec![GameContent::Empty; screen_width * screen_height];
 
     // clear screen
     clear_screen_buffer(&mut screen_buffer);
@@ -318,6 +324,13 @@ fn main() -> Result<()> {
         screen_width,
         screen_height / 2,
         "steer using left and right arrow keys",
+    );
+
+    add_centered_text_to_buffer(
+        &mut screen_buffer,
+        screen_width,
+        screen_height / 2 + 4,
+        "ESC to stop",
     );
 
     for n in (0..5).rev() {
@@ -414,7 +427,7 @@ fn main() -> Result<()> {
             screen_width,
             food_pos.row,
             food_pos.col,
-            'x',
+            GameContent::Food,
         );
 
         add_snake_to_buffer(&mut screen_buffer, &snake, screen_width);
