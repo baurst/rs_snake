@@ -1,3 +1,6 @@
+extern crate clap;
+use clap::{App, Arg};
+
 mod snake;
 
 use snake::{
@@ -18,6 +21,36 @@ use crossterm::{
 };
 
 fn main() -> Result<()> {
+    let matches = App::new("snake")
+        .version("0.1")
+        .author("baurst")
+        .about("classic snake game for your terminal")
+        .arg(
+            Arg::with_name("easy")
+                .short("e")
+                .long("easy")
+                .help("difficulty easy")
+                .takes_value(false)
+                .conflicts_with("hard"),
+        )
+        .arg(
+            Arg::with_name("hard")
+                .short("h")
+                .long("hard")
+                .help("difficulty hard")
+                .takes_value(false)
+                .conflicts_with("easy"),
+        )
+        .get_matches();
+
+    let mut target_fps = 12.0;
+    if matches.is_present("hard") {
+        target_fps *= 1.5;
+    } else if matches.is_present("easy") {
+        target_fps *= 0.7;
+    }
+    let target_fps = target_fps;
+
     let event_queue = KeyEventQueue::new();
     let thread_event_queue = event_queue.clone();
 
@@ -70,8 +103,8 @@ fn main() -> Result<()> {
         let mut score = 0;
         let mut game_loop_begin = std::time::SystemTime::now();
         let mut game_loop_end = std::time::SystemTime::now();
-        let horizontal_target_cycle_time = Duration::from_millis(50);
-        let vertical_target_cycle_time = Duration::from_millis(75);
+        let horizontal_target_cycle_time = Duration::from_secs_f32(1.0 / target_fps);
+        let vertical_target_cycle_time = Duration::from_secs_f32(1.5 / target_fps);
 
         loop {
             // ensure constant cycle time of game loop (i.e. constant snake speed)
@@ -116,7 +149,7 @@ fn main() -> Result<()> {
                 food_pos = new_food_pos;
 
                 // grow snake
-                for _i in 0..2 {
+                for _i in 0..3 {
                     snake.push(*snake.last().unwrap());
                 }
             }
