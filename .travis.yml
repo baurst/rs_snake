@@ -18,7 +18,6 @@ before_deploy:
 - cargo build --release --target $TARGET
 - |
   (
-  cargo build --release --target $TARGET    
   if [ "$TRAVIS_OS_NAME" = 'windows' ]; then
     cp target/${TARGET}/release/rs_snake.exe snake-${TRAVIS_TAG}-${TARGET}.exe
   else

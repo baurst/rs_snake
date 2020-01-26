@@ -114,9 +114,9 @@ fn main() -> Result<()> {
             } else {
                 vertical_target_cycle_time
             };
-            let sleep_time =
-                (target_cycle_time - game_loop_runtime).max(std::time::Duration::from_millis(0));
-            thread::sleep(sleep_time);
+            if game_loop_runtime < target_cycle_time {
+                thread::sleep(target_cycle_time - game_loop_runtime);
+            }
 
             game_loop_begin = std::time::SystemTime::now();
             if let Some(event) = event_queue.get_latest_event() {
