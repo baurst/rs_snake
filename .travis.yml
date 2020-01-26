@@ -1,15 +1,39 @@
 language: rust
-os:
-  - linux
-  - windows
 rust:
-  - stable
-  - beta
-  - nightly
+- stable
+- beta
 cache: cargo
-matrix:
-  allow_failures:
-    - rust: nightly
 script:
-  - cargo build --verbose --all
-  - cargo test --verbose --all
+  - cargo build --all --verbose 
+  - cargo test --all --verbose
+matrix:
+  include:
+  - os: linux
+    env: TARGET=x86_64-unknown-linux-musl
+  - os: windows
+    env: TARGET=x86_64-pc-windows-msvc
+install:
+  - if [ $TARGET ]; then rustup target add $TARGET; fi
+before_deploy:
+- cargo build --release --target $TARGET
+- |
+  (
+  cargo build --release --target $TARGET    
+  if [ "$TRAVIS_OS_NAME" = 'windows' ]; then
+    cp target/${TARGET}/release/rs_snake.exe snake-${TRAVIS_TAG}-${TARGET}.exe
+  else
+    cp target/${TARGET}/release/rs_snake snake-${TRAVIS_TAG}-${TARGET}
+  fi
+  )
+deploy:
+  provider: releases
+  api_key:
+    secure: dQCKsXTjEy3te4j5e0bL+0+8AfgKehJJ9fZOw7Ace7dzPDcgByjN7fiLEhB2bSNjkzq0vnmM+P/4i3xnDbbaMlbRdm55jKJvs5ExTqQj0wBFj6IdWtgECESfZLOvpzP+BrBvKiUmgw5cIov19KyYCJ8kGHhoFkswmCGVnHHihMIS4ulrqDlqrX64w4woKoFq3y4aVvlC85obH1kBWcqDSENR/yCi6zYQ2g5hzTIORXGMLNcj3rrlNxsDMVKVF5FmHXEBEKj1ruCYIfA4V4G5JJLxKiH80l73vdi3vlm8zhWmtTY4dFDkw2kd9XmIhXxrpIL3bSwsFD1iY0t2uB0SWktkP2X0hLLbLeJNG+8JYiFdFveVDLQftwklx5V/MEslSFvXNpZOKbOib+QCgfO6i23QGssPa61Bsren4gvpdA1aG4G6VVUln+IUT7ZpqX6v7ry9U9IfuYFiOZfTt+V5ZAsix/Ix0xP+38/aPA2P08FR0kK9t83XnNVxjJAwRmQrmkYQhi0XDu7SazOzziVzncXoJriJXeqm7c35JnHgAZrTtNfB18QGkxTXuY6fgGs0IOT7FWYUEC4h635CAQLPRnduSIQmDccZ5KCs0a0AwFW1mdJgo2FpjVbA7/S/IAilFPGV1BGl744n11/LdPZzYM1GjVdEcmIDZysVbCOF8Jw=
+  file: snake-${TRAVIS_TAG}-${TARGET}*
+  file_glob: true
+  skip_cleanup: true
+  on:
+    repo: baurst/rs_snake
+    tags: true
+    branch: master
+    condition: $TRAVIS_RUST_VERSION = stable && -v TARGET
