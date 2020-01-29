@@ -114,18 +114,9 @@ fn main() -> Result<()> {
     let target_fps = target_fps;
 
     let mut num_players = 1;
-    let mut players = vec![Player::new(
-        KeyEvent::from(KeyCode::Left),
-        KeyEvent::from(KeyCode::Right),
-        0,
-    )];
+
     if matches.is_present("multiplayer") {
         num_players += 1;
-        players.push(Player::new(
-            KeyEvent::from(KeyCode::Char('a')),
-            KeyEvent::from(KeyCode::Char('d')),
-            1,
-        ));
     }
     let num_players = num_players;
 
@@ -170,6 +161,19 @@ fn main() -> Result<()> {
     }
 
     while !must_exit {
+        let mut players = vec![Player::new(
+            KeyEvent::from(KeyCode::Left),
+            KeyEvent::from(KeyCode::Right),
+            0,
+        )];
+        if num_players == 2 {
+            players.push(Player::new(
+                KeyEvent::from(KeyCode::Char('a')),
+                KeyEvent::from(KeyCode::Char('d')),
+                1,
+            ));
+        }
+
         screen_buffer.set_all(GameContent::Empty);
 
         let mut food_pos = Coordinate { row: 10, col: 15 };
@@ -235,8 +239,8 @@ fn main() -> Result<()> {
                     new_food_pos = get_random_food_pos(screen_height, screen_width);
                     for player in &players {
                         let collides = snake_item_collision(&player.snake.body_pos, &new_food_pos);
-                        if collides {
-                            no_collision = false;
+                        if !collides {
+                            no_collision = true;
                         }
                     }
                 }
@@ -254,12 +258,12 @@ fn main() -> Result<()> {
                     break 'outer;
                 }
             }
-            for player in &players {
-                add_snake_to_buffer(&mut screen_buffer, &player.snake.body_pos);
-            }
 
             // clear, update and draw screen buffer
             screen_buffer.set_all(GameContent::Empty);
+            for player in &players {
+                add_snake_to_buffer(&mut screen_buffer, &player.snake.body_pos);
+            }
             screen_buffer.set_at(food_pos.row, food_pos.col, GameContent::Food);
             screen_buffer.add_border(GameContent::Border);
 
@@ -289,14 +293,14 @@ fn main() -> Result<()> {
 
         if num_players == 1 {
             screen_buffer.set_centered_text_at_row(
-                screen_height / 2,
-                &format!("SNAKE - Score: {}", players[0].score),
+                screen_height - 1,
+                &format!("SNAKE - Final Score: {}", players[0].score),
             );
         } else if num_players == 2 {
             screen_buffer.set_centered_text_at_row(
-                screen_height / 2,
+                screen_height - 1,
                 &format!(
-                    "SNAKE - Score: P1: {} - P2 {}",
+                    "SNAKE - Final Score: P1: {} - P2: {}",
                     players[0].score, players[1].score
                 ),
             );
