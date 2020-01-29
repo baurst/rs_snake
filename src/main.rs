@@ -20,6 +20,15 @@ use crossterm::{
     ExecutableCommand, Result,
 };
 
+#[derive(PartialEq, Clone, Debug)]
+struct Player{
+    score: usize,
+    left_key: crossterm::event::KeyEvent,
+    right_key: crossterm::event::KeyEvent,
+    snake: Vec<Coordinate>,
+    snake_direction: i64,
+}
+
 fn main() -> Result<()> {
     let matches = App::new("snake")
         .version("0.1")
