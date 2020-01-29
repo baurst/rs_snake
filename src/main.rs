@@ -21,12 +21,57 @@ use crossterm::{
 };
 
 #[derive(PartialEq, Clone, Debug)]
-struct Player{
+struct Snake {
+    body_pos: Vec<Coordinate>,
+    direction: i64,
+}
+
+impl Snake {
+    fn new(player_idx: usize) -> Snake {
+        let snake_body = vec![
+            Coordinate {
+                row: 18,
+                col: 10 + player_idx * 5,
+            },
+            Coordinate {
+                row: 19,
+                col: 10 + player_idx * 5,
+            },
+            Coordinate {
+                row: 20,
+                col: 10 + player_idx * 5,
+            },
+        ];
+        Snake {
+            body_pos: snake_body,
+            direction: 0,
+        }
+    }
+}
+
+#[derive(PartialEq, Clone, Debug)]
+struct Player {
     score: usize,
     left_key: crossterm::event::KeyEvent,
     right_key: crossterm::event::KeyEvent,
-    snake: Vec<Coordinate>,
-    snake_direction: i64,
+    snake: Snake,
+    player_idx: usize,
+}
+
+impl Player {
+    fn new(
+        left_key: crossterm::event::KeyEvent,
+        right_key: crossterm::event::KeyEvent,
+        player_idx: usize,
+    ) -> Player {
+        Player {
+            snake: Snake::new(player_idx),
+            left_key: left_key,
+            right_key: right_key,
+            player_idx: player_idx,
+            score: 0,
+        }
+    }
 }
 
 fn main() -> Result<()> {
@@ -68,8 +113,8 @@ fn main() -> Result<()> {
     let target_fps = target_fps;
 
     let mut num_players = 1;
-    if matches.is_present("multiplayer"){
-        num_players +=1;
+    if matches.is_present("multiplayer") {
+        num_players += 1;
     }
     let num_players = num_players;
 
