@@ -21,12 +21,58 @@ use crossterm::{
 };
 
 #[derive(PartialEq, Clone, Debug)]
-struct Player{
+struct Snake {
+    body_pos: Vec<Coordinate>,
+    // 0: up, 1: right, 2: down, 3: left
+    direction: i64,
+}
+
+impl Snake {
+    fn new(player_idx: usize) -> Snake {
+        let snake_body = vec![
+            Coordinate {
+                row: 18,
+                col: 10 + player_idx * 5,
+            },
+            Coordinate {
+                row: 19,
+                col: 10 + player_idx * 5,
+            },
+            Coordinate {
+                row: 20,
+                col: 10 + player_idx * 5,
+            },
+        ];
+        Snake {
+            body_pos: snake_body,
+            direction: 0,
+        }
+    }
+}
+
+#[derive(PartialEq, Clone, Debug)]
+struct Player {
     score: usize,
     left_key: crossterm::event::KeyEvent,
     right_key: crossterm::event::KeyEvent,
-    snake: Vec<Coordinate>,
-    snake_direction: i64,
+    snake: Snake,
+    player_idx: usize,
+}
+
+impl Player {
+    fn new(
+        left_key: crossterm::event::KeyEvent,
+        right_key: crossterm::event::KeyEvent,
+        player_idx: usize,
+    ) -> Player {
+        Player {
+            snake: Snake::new(player_idx),
+            left_key: left_key,
+            right_key: right_key,
+            player_idx: player_idx,
+            score: 0,
+        }
+    }
 }
 
 fn main() -> Result<()> {
@@ -68,9 +114,20 @@ fn main() -> Result<()> {
     let target_fps = target_fps;
 
     let mut num_players = 1;
-    if matches.is_present("multiplayer"){
-        num_players +=1;
+    let mut players = vec![Player::new(
+        KeyEvent::from(KeyCode::Left),
+        KeyEvent::from(KeyCode::Left),
+        0,
+    )];
+    if matches.is_present("multiplayer") {
+        num_players += 1;
+        players.push(Player::new(
+            KeyEvent::from(KeyCode::Char('a')),
+            KeyEvent::from(KeyCode::Char('a')),
+            0,
+        ));
     }
+    let players = players;
     let num_players = num_players;
 
     let event_queue = KeyEventQueue::new();
@@ -94,16 +151,21 @@ fn main() -> Result<()> {
 
     // clear screen
     screen_buffer.set_all(GameContent::Empty);
-    screen_buffer.set_centered_text_at_row(screen_height / 2 - 2, "SNAKE");
+    screen_buffer.set_centered_text_at_row(screen_height / 2 - 4, "SNAKE");
+    screen_buffer.set_centered_text_at_row(screen_height / 2 - 2, "press ESC to stop");
 
-    screen_buffer
-        .set_centered_text_at_row(screen_height / 2, "steer using left and right arrow keys");
+    screen_buffer.set_centered_text_at_row(
+        screen_height / 2 + 2,
+        " Player 1: steer using left and right arrow keys",
+    );
 
-    screen_buffer.set_centered_text_at_row(screen_height / 2 + 4, "press ESC to stop");
+    if num_players > 1 {
+        screen_buffer
+            .set_centered_text_at_row(screen_height / 2 + 4, "Player 2: steer using A and D arrow");
+    }
 
     for n in (0..5).rev() {
-        screen_buffer
-            .set_centered_text_at_row(screen_height / 2 + 2, &format!("Starting in {}", n));
+        screen_buffer.set_centered_text_at_row(screen_height - 4, &format!("Starting in {}", n));
         screen_buffer.draw(&mut stdout)?;
         thread::sleep(Duration::from_secs(1));
     }
