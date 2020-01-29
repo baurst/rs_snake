@@ -127,7 +127,6 @@ fn main() -> Result<()> {
             0,
         ));
     }
-    let players = players;
     let num_players = num_players;
 
     let event_queue = KeyEventQueue::new();
@@ -175,83 +174,95 @@ fn main() -> Result<()> {
 
         let mut food_pos = Coordinate { row: 10, col: 15 };
 
-        let mut snake = vec![
-            Coordinate { row: 18, col: 15 },
-            Coordinate { row: 19, col: 15 },
-            Coordinate { row: 20, col: 15 },
-        ];
-
         // 0: up, 1: right, 2: down, 3: left
-        let mut snake_direction = 0;
-
         let mut score = 0;
         let mut game_loop_begin = std::time::SystemTime::now();
         let mut game_loop_end = std::time::SystemTime::now();
         let horizontal_target_cycle_time = Duration::from_secs_f32(1.0 / target_fps);
         let vertical_target_cycle_time = Duration::from_secs_f32(1.5 / target_fps);
 
-        loop {
+        'outer: loop {
             // ensure constant cycle time of game loop (i.e. constant snake speed)
             let game_loop_runtime = game_loop_end.duration_since(game_loop_begin).unwrap();
-            let target_cycle_time = if snake_direction % 2 == 1 {
-                horizontal_target_cycle_time
-            } else {
-                vertical_target_cycle_time
-            };
+            let target_cycle_time = horizontal_target_cycle_time;
             if game_loop_runtime < target_cycle_time {
                 thread::sleep(target_cycle_time - game_loop_runtime);
             }
 
             game_loop_begin = std::time::SystemTime::now();
-            if let Some(event) = event_queue.get_latest_event() {
-                if event == KeyEvent::from(KeyCode::Esc)
-                    || event == KeyEvent::from(KeyCode::Char('q'))
-                {
-                    must_exit = true;
-                    break;
-                } else if event == KeyEvent::from(KeyCode::Left) {
-                    snake_direction -= 1;
-                } else if event == KeyEvent::from(KeyCode::Right) {
-                    snake_direction += 1;
+            for mut player in &mut players {
+                if let Some(event) = event_queue.get_latest_event() {
+                    // TODO: GET EVENTS MATCHING ONE OF ...
+                    if event == KeyEvent::from(KeyCode::Esc)
+                        || event == KeyEvent::from(KeyCode::Char('q'))
+                    {
+                        must_exit = true;
+                        break;
+                    } else if event == player.left_key {
+                        player.snake.direction -= 1;
+                    } else if event == player.right_key {
+                        player.snake.direction += 1;
+                    }
+                }
+
+                // TODO EVENTS CLEAR
+
+                player.snake.direction = match player.snake.direction {
+                    -1 => 3,
+                    _ => player.snake.direction % 4,
+                };
+
+                move_snake(&mut player.snake.body_pos, player.snake.direction);
+            }
+
+            let mut food_found = false;
+            for mut player in &mut players {
+                if player.snake.body_pos[0] == food_pos {
+                    player.score += 1;
+                    food_found = true;
+
+                    // grow snake
+                    for _i in 0..3 {
+                        player
+                            .snake
+                            .body_pos
+                            .push(*player.snake.body_pos.last().unwrap());
+                    }
                 }
             }
 
-            snake_direction = match snake_direction {
-                -1 => 3,
-                _ => snake_direction % 4,
-            };
-
-            move_snake(&mut snake, snake_direction);
-
-            if snake[0] == food_pos {
-                score += 1;
-                // place new food
+            if food_found {
                 let mut new_food_pos = get_random_food_pos(screen_height, screen_width);
-                while snake_item_collision(&snake, &new_food_pos) {
+                let mut no_collision = false;
+                while !no_collision {
                     new_food_pos = get_random_food_pos(screen_height, screen_width);
+                    for player in &players {
+                        let collides = snake_item_collision(&player.snake.body_pos, &new_food_pos);
+                        if collides {
+                            no_collision = false;
+                        }
+                    }
                 }
                 food_pos = new_food_pos;
-
-                // grow snake
-                for _i in 0..3 {
-                    snake.push(*snake.last().unwrap());
-                }
+                food_found = false;
             }
 
-            // check for collisions
-            if snake[0].row == 0
-                || snake[0].row == screen_height - 1
-                || snake[0].col == 0
-                || snake[0].col == screen_width - 1
-                || snake_item_collision(&snake[1..], &snake[0])
-            {
-                break;
+            // check for snake border and snake ego collisions
+            for player in &players {
+                if player.snake.body_pos[0].row == 0
+                    || player.snake.body_pos[0].row == screen_height - 1
+                    || player.snake.body_pos[0].col == 0
+                    || player.snake.body_pos[0].col == screen_width - 1
+                    || snake_item_collision(&player.snake.body_pos[1..], &player.snake.body_pos[0])
+                {
+                    break 'outer;
+                }
+                add_snake_to_buffer(&mut screen_buffer, &player.snake.body_pos);
             }
 
             // clear, update and draw screen buffer
             screen_buffer.set_all(GameContent::Empty);
             screen_buffer.set_at(food_pos.row, food_pos.col, GameContent::Food);
-            add_snake_to_buffer(&mut screen_buffer, &snake);
             screen_buffer.add_border(GameContent::Border);
             screen_buffer.set_centered_text_at_row(0, &format!("SNAKE - Score: {}", score));
 
