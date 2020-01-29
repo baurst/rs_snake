@@ -41,6 +41,13 @@ fn main() -> Result<()> {
                 .takes_value(false)
                 .conflicts_with("easy"),
         )
+        .arg(
+            Arg::with_name("multiplayer")
+                .short("m")
+                .long("multi")
+                .help("enable multiplayer support")
+                .takes_value(false),
+        )
         .get_matches();
 
     let mut target_fps = 12.0;
@@ -50,6 +57,12 @@ fn main() -> Result<()> {
         target_fps *= 0.7;
     }
     let target_fps = target_fps;
+
+    let mut num_players = 1;
+    if matches.is_present("multiplayer"){
+        num_players +=1;
+    }
+    let num_players = num_players;
 
     let event_queue = KeyEventQueue::new();
     let thread_event_queue = event_queue.clone();
