@@ -20,6 +20,18 @@ use crossterm::{
     ExecutableCommand, Result,
 };
 
+fn find_matches<T: PartialEq + Copy>(look_in: &[T], look_for: &[T]) -> Vec<T> {
+    let mut found: Vec<T> = vec![];
+    for a in look_for {
+        for b in look_in {
+            if a == b {
+                found.push(*b);
+            }
+        }
+    }
+    return found;
+}
+
 #[derive(PartialEq, Clone, Debug)]
 struct Snake {
     body_pos: Vec<Coordinate>,
@@ -114,20 +126,10 @@ fn main() -> Result<()> {
     let target_fps = target_fps;
 
     let mut num_players = 1;
-    let mut players = vec![Player::new(
-        KeyEvent::from(KeyCode::Left),
-        KeyEvent::from(KeyCode::Left),
-        0,
-    )];
+
     if matches.is_present("multiplayer") {
         num_players += 1;
-        players.push(Player::new(
-            KeyEvent::from(KeyCode::Char('a')),
-            KeyEvent::from(KeyCode::Char('a')),
-            0,
-        ));
     }
-    let players = players;
     let num_players = num_players;
 
     let event_queue = KeyEventQueue::new();
@@ -142,8 +144,8 @@ fn main() -> Result<()> {
 
     stdout.execute(terminal::Clear(terminal::ClearType::All))?;
 
-    let screen_width = 60;
-    let screen_height = 30;
+    let screen_width = 80;
+    let screen_height = 40;
 
     let mut must_exit = false;
 
@@ -171,89 +173,152 @@ fn main() -> Result<()> {
     }
 
     while !must_exit {
+        let mut players = vec![Player::new(
+            KeyEvent::from(KeyCode::Left),
+            KeyEvent::from(KeyCode::Right),
+            0,
+        )];
+        if num_players == 2 {
+            players.push(Player::new(
+                KeyEvent::from(KeyCode::Char('a')),
+                KeyEvent::from(KeyCode::Char('d')),
+                1,
+            ));
+        }
+
         screen_buffer.set_all(GameContent::Empty);
 
         let mut food_pos = Coordinate { row: 10, col: 15 };
 
-        let mut snake = vec![
-            Coordinate { row: 18, col: 15 },
-            Coordinate { row: 19, col: 15 },
-            Coordinate { row: 20, col: 15 },
-        ];
-
         // 0: up, 1: right, 2: down, 3: left
-        let mut snake_direction = 0;
-
-        let mut score = 0;
         let mut game_loop_begin = std::time::SystemTime::now();
         let mut game_loop_end = std::time::SystemTime::now();
         let horizontal_target_cycle_time = Duration::from_secs_f32(1.0 / target_fps);
-        let vertical_target_cycle_time = Duration::from_secs_f32(1.5 / target_fps);
 
-        loop {
+        'outer: loop {
             // ensure constant cycle time of game loop (i.e. constant snake speed)
             let game_loop_runtime = game_loop_end.duration_since(game_loop_begin).unwrap();
-            let target_cycle_time = if snake_direction % 2 == 1 {
-                horizontal_target_cycle_time
-            } else {
-                vertical_target_cycle_time
-            };
+            let target_cycle_time = horizontal_target_cycle_time;
             if game_loop_runtime < target_cycle_time {
                 thread::sleep(target_cycle_time - game_loop_runtime);
             }
 
             game_loop_begin = std::time::SystemTime::now();
-            if let Some(event) = event_queue.get_latest_event() {
-                if event == KeyEvent::from(KeyCode::Esc)
-                    || event == KeyEvent::from(KeyCode::Char('q'))
-                {
-                    must_exit = true;
-                    break;
-                } else if event == KeyEvent::from(KeyCode::Left) {
-                    snake_direction -= 1;
-                } else if event == KeyEvent::from(KeyCode::Right) {
-                    snake_direction += 1;
+            if let Some(events) = event_queue.get_all_events() {
+                // TODO: GET EVENTS MATCHING ONE OF ...
+                if !events.is_empty() {
+                    let esc_matches = find_matches(
+                        &events,
+                        &vec![
+                            KeyEvent::from(KeyCode::Esc),
+                            KeyEvent::from(KeyCode::Char('q')),
+                        ],
+                    );
+
+                    if !esc_matches.is_empty() {
+                        must_exit = true;
+                        break 'outer;
+                    }
+                    for mut player in &mut players {
+                        let event_matches =
+                            find_matches(&events, &vec![player.left_key, player.right_key]);
+                        if !event_matches.is_empty() {
+                            if *events.last().unwrap() == player.left_key {
+                                player.snake.direction -= 1;
+                            } else if *events.last().unwrap() == player.right_key {
+                                player.snake.direction += 1;
+                            }
+                        }
+                    }
+                }
+            }
+            for mut player in &mut players {
+                player.snake.direction = match player.snake.direction {
+                    -1 => 3,
+                    _ => player.snake.direction % 4,
+                };
+
+                move_snake(&mut player.snake.body_pos, player.snake.direction);
+            }
+            // TODO EVENTS CLEAR
+
+            let mut food_found = false;
+            for mut player in &mut players {
+                if player.snake.body_pos[0] == food_pos {
+                    player.score += 1;
+                    food_found = true;
+
+                    // grow snake
+                    for _i in 0..3 {
+                        player
+                            .snake
+                            .body_pos
+                            .push(*player.snake.body_pos.last().unwrap());
+                    }
                 }
             }
 
-            snake_direction = match snake_direction {
-                -1 => 3,
-                _ => snake_direction % 4,
-            };
-
-            move_snake(&mut snake, snake_direction);
-
-            if snake[0] == food_pos {
-                score += 1;
-                // place new food
+            if food_found {
                 let mut new_food_pos = get_random_food_pos(screen_height, screen_width);
-                while snake_item_collision(&snake, &new_food_pos) {
+                let mut no_collision = false;
+                while !no_collision {
                     new_food_pos = get_random_food_pos(screen_height, screen_width);
+                    for player in &players {
+                        let collides = snake_item_collision(&player.snake.body_pos, &new_food_pos);
+                        if !collides {
+                            no_collision = true;
+                        }
+                    }
                 }
                 food_pos = new_food_pos;
-
-                // grow snake
-                for _i in 0..3 {
-                    snake.push(*snake.last().unwrap());
-                }
             }
 
-            // check for collisions
-            if snake[0].row == 0
-                || snake[0].row == screen_height - 1
-                || snake[0].col == 0
-                || snake[0].col == screen_width - 1
-                || snake_item_collision(&snake[1..], &snake[0])
-            {
-                break;
+            // check for snake border and snake ego collisions
+            for player in &players {
+                if player.snake.body_pos[0].row == 0
+                    || player.snake.body_pos[0].row == screen_height - 1
+                    || player.snake.body_pos[0].col == 0
+                    || player.snake.body_pos[0].col == screen_width - 1
+                    || snake_item_collision(&player.snake.body_pos[1..], &player.snake.body_pos[0])
+                {
+                    break 'outer;
+                }
+            }
+            // TODO check snake vs snake collision!
+            if num_players == 2 {
+                let coll_a_b = snake_item_collision(
+                    &players[0].snake.body_pos[1..],
+                    &players[1].snake.body_pos[0],
+                );
+                let coll_b_a = snake_item_collision(
+                    &players[1].snake.body_pos[1..],
+                    &players[0].snake.body_pos[0],
+                );
+                if coll_a_b || coll_b_a {
+                    break 'outer;
+                }
             }
 
             // clear, update and draw screen buffer
             screen_buffer.set_all(GameContent::Empty);
+            for player in &players {
+                add_snake_to_buffer(&mut screen_buffer, &player.snake.body_pos);
+            }
             screen_buffer.set_at(food_pos.row, food_pos.col, GameContent::Food);
-            add_snake_to_buffer(&mut screen_buffer, &snake);
             screen_buffer.add_border(GameContent::Border);
-            screen_buffer.set_centered_text_at_row(0, &format!("SNAKE - Score: {}", score));
+
+            if num_players == 1 {
+                screen_buffer
+                    .set_centered_text_at_row(0, &format!("SNAKE - Score: {}", players[0].score));
+            } else if num_players == 2 {
+                screen_buffer.set_centered_text_at_row(
+                    0,
+                    &format!(
+                        "SNAKE - Score: P1: {} - P2 {}",
+                        players[0].score, players[1].score
+                    ),
+                );
+            }
 
             screen_buffer.draw(&mut stdout)?;
 
@@ -265,8 +330,21 @@ fn main() -> Result<()> {
         screen_buffer.draw(&mut stdout)?;
 
         screen_buffer.set_centered_text_at_row(screen_height / 2 - 2, "GAME OVER");
-        screen_buffer
-            .set_centered_text_at_row(screen_height / 2, &format!("SNAKE - Score: {}", score));
+
+        if num_players == 1 {
+            screen_buffer.set_centered_text_at_row(
+                screen_height - 1,
+                &format!("SNAKE - Final Score: {}", players[0].score),
+            );
+        } else if num_players == 2 {
+            screen_buffer.set_centered_text_at_row(
+                screen_height - 1,
+                &format!(
+                    "SNAKE - Final Score: P1: {} - P2: {}",
+                    players[0].score, players[1].score
+                ),
+            );
+        }
         if !must_exit {
             for n in (0..40).rev() {
                 screen_buffer.set_centered_text_at_row(

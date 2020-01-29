@@ -49,6 +49,18 @@ impl<T: Send + Copy> KeyEventQueue<T> {
         }
     }
 
+    pub fn get_all_events(&self) -> Option<Vec<T>> {
+        let maybe_queue = self.inner.lock();
+
+        if let Ok(mut queue) = maybe_queue {
+            let drained = queue.drain(..).collect::<Vec<_>>();
+            queue.clear();
+            return Some(drained);
+        } else {
+            panic!("poisoned mutex");
+        }
+    }
+
     fn add_event(&self, event: T) -> usize {
         if let Ok(mut queue) = self.inner.lock() {
             queue.push_back(event);
