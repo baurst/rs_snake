@@ -116,15 +116,15 @@ fn main() -> Result<()> {
     let mut num_players = 1;
     let mut players = vec![Player::new(
         KeyEvent::from(KeyCode::Left),
-        KeyEvent::from(KeyCode::Left),
+        KeyEvent::from(KeyCode::Right),
         0,
     )];
     if matches.is_present("multiplayer") {
         num_players += 1;
         players.push(Player::new(
             KeyEvent::from(KeyCode::Char('a')),
-            KeyEvent::from(KeyCode::Char('a')),
-            0,
+            KeyEvent::from(KeyCode::Char('d')),
+            1,
         ));
     }
     let num_players = num_players;
@@ -175,11 +175,9 @@ fn main() -> Result<()> {
         let mut food_pos = Coordinate { row: 10, col: 15 };
 
         // 0: up, 1: right, 2: down, 3: left
-        let mut score = 0;
         let mut game_loop_begin = std::time::SystemTime::now();
         let mut game_loop_end = std::time::SystemTime::now();
         let horizontal_target_cycle_time = Duration::from_secs_f32(1.0 / target_fps);
-        let vertical_target_cycle_time = Duration::from_secs_f32(1.5 / target_fps);
 
         'outer: loop {
             // ensure constant cycle time of game loop (i.e. constant snake speed)
@@ -205,8 +203,6 @@ fn main() -> Result<()> {
                     }
                 }
 
-                // TODO EVENTS CLEAR
-
                 player.snake.direction = match player.snake.direction {
                     -1 => 3,
                     _ => player.snake.direction % 4,
@@ -214,6 +210,7 @@ fn main() -> Result<()> {
 
                 move_snake(&mut player.snake.body_pos, player.snake.direction);
             }
+            // TODO EVENTS CLEAR
 
             let mut food_found = false;
             for mut player in &mut players {
@@ -244,7 +241,6 @@ fn main() -> Result<()> {
                     }
                 }
                 food_pos = new_food_pos;
-                food_found = false;
             }
 
             // check for snake border and snake ego collisions
@@ -257,6 +253,8 @@ fn main() -> Result<()> {
                 {
                     break 'outer;
                 }
+            }
+            for player in &players {
                 add_snake_to_buffer(&mut screen_buffer, &player.snake.body_pos);
             }
 
@@ -264,7 +262,19 @@ fn main() -> Result<()> {
             screen_buffer.set_all(GameContent::Empty);
             screen_buffer.set_at(food_pos.row, food_pos.col, GameContent::Food);
             screen_buffer.add_border(GameContent::Border);
-            screen_buffer.set_centered_text_at_row(0, &format!("SNAKE - Score: {}", score));
+
+            if num_players == 1 {
+                screen_buffer
+                    .set_centered_text_at_row(0, &format!("SNAKE - Score: {}", players[0].score));
+            } else if num_players == 2 {
+                screen_buffer.set_centered_text_at_row(
+                    0,
+                    &format!(
+                        "SNAKE - Score: P1: {} - P2 {}",
+                        players[0].score, players[1].score
+                    ),
+                );
+            }
 
             screen_buffer.draw(&mut stdout)?;
 
@@ -276,8 +286,21 @@ fn main() -> Result<()> {
         screen_buffer.draw(&mut stdout)?;
 
         screen_buffer.set_centered_text_at_row(screen_height / 2 - 2, "GAME OVER");
-        screen_buffer
-            .set_centered_text_at_row(screen_height / 2, &format!("SNAKE - Score: {}", score));
+
+        if num_players == 1 {
+            screen_buffer.set_centered_text_at_row(
+                screen_height / 2,
+                &format!("SNAKE - Score: {}", players[0].score),
+            );
+        } else if num_players == 2 {
+            screen_buffer.set_centered_text_at_row(
+                screen_height / 2,
+                &format!(
+                    "SNAKE - Score: P1: {} - P2 {}",
+                    players[0].score, players[1].score
+                ),
+            );
+        }
         if !must_exit {
             for n in (0..40).rev() {
                 screen_buffer.set_centered_text_at_row(
