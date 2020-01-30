@@ -20,6 +20,18 @@ use crossterm::{
     ExecutableCommand, Result,
 };
 
+fn find_matches<T: PartialEq + Copy>(look_in: &[T], look_for: &[T]) -> Vec<T> {
+    let mut found: Vec<T> = vec![];
+    for a in look_for {
+        for b in look_in {
+            if a == b {
+                found.push(*b);
+            }
+        } 
+    }
+    return found;
+}
+
 #[derive(PartialEq, Clone, Debug)]
 struct Snake {
     body_pos: Vec<Coordinate>,
@@ -250,14 +262,23 @@ fn main() -> Result<()> {
             // check for snake border and snake ego collisions
             for player in &players {
                 if player.snake.body_pos[0].row == 0
-                    || player.snake.body_pos[0].row == screen_height - 1
-                    || player.snake.body_pos[0].col == 0
-                    || player.snake.body_pos[0].col == screen_width - 1
-                    || snake_item_collision(&player.snake.body_pos[1..], &player.snake.body_pos[0])
+                || player.snake.body_pos[0].row == screen_height - 1
+                || player.snake.body_pos[0].col == 0
+                || player.snake.body_pos[0].col == screen_width - 1
+                || snake_item_collision(&player.snake.body_pos[1..], &player.snake.body_pos[0])
                 {
                     break 'outer;
                 }
             }
+            // TODO check snake vs snake collision!
+            if num_players == 2 {
+                let coll_a_b = snake_item_collision(&players[0].snake.body_pos[1..], &players[1].snake.body_pos[0]);
+                let coll_b_a = snake_item_collision(&players[1].snake.body_pos[1..], &players[0].snake.body_pos[0]);
+                if coll_a_b || coll_b_a {
+                    break 'outer;
+                }
+            }
+
 
             // clear, update and draw screen buffer
             screen_buffer.set_all(GameContent::Empty);
