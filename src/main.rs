@@ -27,7 +27,7 @@ fn find_matches<T: PartialEq + Copy>(look_in: &[T], look_for: &[T]) -> Vec<T> {
             if a == b {
                 found.push(*b);
             }
-        } 
+        }
     }
     return found;
 }
@@ -144,8 +144,8 @@ fn main() -> Result<()> {
 
     stdout.execute(terminal::Clear(terminal::ClearType::All))?;
 
-    let screen_width = 60;
-    let screen_height = 30;
+    let screen_width = 80;
+    let screen_height = 40;
 
     let mut must_exit = false;
 
@@ -204,21 +204,35 @@ fn main() -> Result<()> {
             }
 
             game_loop_begin = std::time::SystemTime::now();
-            for mut player in &mut players {
-                if let Some(event) = event_queue.get_latest_event() {
-                    // TODO: GET EVENTS MATCHING ONE OF ...
-                    if event == KeyEvent::from(KeyCode::Esc)
-                        || event == KeyEvent::from(KeyCode::Char('q'))
-                    {
+            if let Some(events) = event_queue.get_all_events() {
+                // TODO: GET EVENTS MATCHING ONE OF ...
+                if !events.is_empty() {
+                    let esc_matches = find_matches(
+                        &events,
+                        &vec![
+                            KeyEvent::from(KeyCode::Esc),
+                            KeyEvent::from(KeyCode::Char('q')),
+                        ],
+                    );
+
+                    if !esc_matches.is_empty() {
                         must_exit = true;
-                        break;
-                    } else if event == player.left_key {
-                        player.snake.direction -= 1;
-                    } else if event == player.right_key {
-                        player.snake.direction += 1;
+                        break 'outer;
+                    }
+                    for mut player in &mut players {
+                        let event_matches =
+                            find_matches(&events, &vec![player.left_key, player.right_key]);
+                        if !event_matches.is_empty() {
+                            if *events.last().unwrap() == player.left_key {
+                                player.snake.direction -= 1;
+                            } else if *events.last().unwrap() == player.right_key {
+                                player.snake.direction += 1;
+                            }
+                        }
                     }
                 }
-
+            }
+            for mut player in &mut players {
                 player.snake.direction = match player.snake.direction {
                     -1 => 3,
                     _ => player.snake.direction % 4,
@@ -262,23 +276,28 @@ fn main() -> Result<()> {
             // check for snake border and snake ego collisions
             for player in &players {
                 if player.snake.body_pos[0].row == 0
-                || player.snake.body_pos[0].row == screen_height - 1
-                || player.snake.body_pos[0].col == 0
-                || player.snake.body_pos[0].col == screen_width - 1
-                || snake_item_collision(&player.snake.body_pos[1..], &player.snake.body_pos[0])
+                    || player.snake.body_pos[0].row == screen_height - 1
+                    || player.snake.body_pos[0].col == 0
+                    || player.snake.body_pos[0].col == screen_width - 1
+                    || snake_item_collision(&player.snake.body_pos[1..], &player.snake.body_pos[0])
                 {
                     break 'outer;
                 }
             }
             // TODO check snake vs snake collision!
             if num_players == 2 {
-                let coll_a_b = snake_item_collision(&players[0].snake.body_pos[1..], &players[1].snake.body_pos[0]);
-                let coll_b_a = snake_item_collision(&players[1].snake.body_pos[1..], &players[0].snake.body_pos[0]);
+                let coll_a_b = snake_item_collision(
+                    &players[0].snake.body_pos[1..],
+                    &players[1].snake.body_pos[0],
+                );
+                let coll_b_a = snake_item_collision(
+                    &players[1].snake.body_pos[1..],
+                    &players[0].snake.body_pos[0],
+                );
                 if coll_a_b || coll_b_a {
                     break 'outer;
                 }
             }
-
 
             // clear, update and draw screen buffer
             screen_buffer.set_all(GameContent::Empty);
