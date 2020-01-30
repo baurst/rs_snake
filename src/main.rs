@@ -223,9 +223,9 @@ fn main() -> Result<()> {
                         let event_matches =
                             find_matches(&events, &vec![player.left_key, player.right_key]);
                         if !event_matches.is_empty() {
-                            if *events.last().unwrap() == player.left_key {
+                            if *event_matches.last().unwrap() == player.left_key {
                                 player.snake.direction -= 1;
-                            } else if *events.last().unwrap() == player.right_key {
+                            } else if *event_matches.last().unwrap() == player.right_key {
                                 player.snake.direction += 1;
                             }
                         }
