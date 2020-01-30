@@ -22,8 +22,10 @@ pub struct KeyEventQueue<T: Send + Copy> {
 
 #[derive(Clone, Copy, Debug)]
 pub enum GameContent {
-    SnakeHead,
-    SnakeBody,
+    SnakeHeadA,
+    SnakeHeadB,
+    SnakeBodyA,
+    SnakeBodyB,
     Food,
     Border,
     Empty,
@@ -159,15 +161,25 @@ impl ScreenBuffer {
                             .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
                             .queue(style::PrintStyledContent("█".dark_blue()))?;
                     }
-                    GameContent::SnakeHead => {
+                    GameContent::SnakeHeadA => {
                         stdout
                             .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
                             .queue(style::PrintStyledContent("█".dark_green()))?;
                     }
-                    GameContent::SnakeBody => {
+                    GameContent::SnakeBodyA => {
                         stdout
                             .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
                             .queue(style::PrintStyledContent("█".green()))?;
+                    }
+                    GameContent::SnakeHeadB => {
+                        stdout
+                            .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
+                            .queue(style::PrintStyledContent("█".dark_yellow()))?;
+                    }
+                    GameContent::SnakeBodyB => {
+                        stdout
+                            .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
+                            .queue(style::PrintStyledContent("█".yellow()))?;
                     }
                     GameContent::Food => {
                         stdout
@@ -197,10 +209,24 @@ impl ScreenBuffer {
     }
 }
 
-pub fn add_snake_to_buffer(screen_buffer: &mut ScreenBuffer, snake: &Vec<Coordinate>) {
-    screen_buffer.set_at(snake[0].row, snake[0].col, GameContent::SnakeHead);
+pub fn add_snake_to_buffer(
+    screen_buffer: &mut ScreenBuffer,
+    snake: &Vec<Coordinate>,
+    player_idx: usize,
+) {
+    let head_content = if player_idx == 1 {
+        GameContent::SnakeHeadA
+    } else {
+        GameContent::SnakeHeadB
+    };
+    screen_buffer.set_at(snake[0].row, snake[0].col, head_content);
 
     // only use rest of the body
+    let body_content = if player_idx == 1 {
+        GameContent::SnakeBodyA
+    } else {
+        GameContent::SnakeBodyB
+    };
     let snake_body: Vec<&Coordinate> = snake
         .into_iter()
         .enumerate()
@@ -209,7 +235,7 @@ pub fn add_snake_to_buffer(screen_buffer: &mut ScreenBuffer, snake: &Vec<Coordin
         .collect();
 
     for coord in snake_body {
-        screen_buffer.set_at(coord.row, coord.col, GameContent::SnakeBody);
+        screen_buffer.set_at(coord.row, coord.col, body_content);
     }
 }
 
@@ -253,9 +279,98 @@ pub fn snake_item_collision(snake: &[Coordinate], item: &Coordinate) -> bool {
     return is_collision.is_some();
 }
 
+pub fn check_border_and_ego_collision(
+    snake_body: &[Coordinate],
+    screen_width: usize,
+    screen_height: usize,
+) -> bool {
+    return snake_body[0].row == 0
+        || snake_body[0].row == screen_height - 1
+        || snake_body[0].col == 0
+        || snake_body[0].col == screen_width - 1
+        || snake_item_collision(&snake_body[1..], &snake_body[0]);
+}
+
+pub fn snake_snake_collision(snake_a: &[Coordinate], snake_b: &[Coordinate]) -> i32 {
+    if snake_item_collision(&snake_a[1..], &snake_b[0]) {
+        return 1;
+    } else if snake_item_collision(&snake_b[1..], &snake_a[0]) {
+        return 0;
+    } else {
+        return -1;
+    }
+}
+
 pub fn get_random_food_pos(screen_height: usize, screen_width: usize) -> Coordinate {
     let mut rng = rand::thread_rng();
     let row = rng.gen_range(1, screen_height - 1);
     let col = rng.gen_range(1, screen_width - 1);
     return Coordinate { row: row, col: col };
+}
+
+pub fn find_matches<T: PartialEq + Copy>(look_in: &[T], look_for: &[T]) -> Vec<T> {
+    let mut found: Vec<T> = vec![];
+    for a in look_for {
+        for b in look_in {
+            if a == b {
+                found.push(*b);
+            }
+        }
+    }
+    return found;
+}
+
+#[derive(PartialEq, Clone, Debug)]
+pub struct Snake {
+    pub body_pos: Vec<Coordinate>,
+    // 0: up, 1: right, 2: down, 3: left
+    pub direction: i64,
+}
+
+impl Snake {
+    pub fn new(player_idx: usize) -> Snake {
+        let snake_body = vec![
+            Coordinate {
+                row: 18,
+                col: 10 + player_idx * 5,
+            },
+            Coordinate {
+                row: 19,
+                col: 10 + player_idx * 5,
+            },
+            Coordinate {
+                row: 20,
+                col: 10 + player_idx * 5,
+            },
+        ];
+        Snake {
+            body_pos: snake_body,
+            direction: 0,
+        }
+    }
+}
+
+#[derive(PartialEq, Clone, Debug)]
+pub struct Player {
+    pub score: usize,
+    pub left_key: crossterm::event::KeyEvent,
+    pub right_key: crossterm::event::KeyEvent,
+    pub snake: Snake,
+    pub player_idx: usize,
+}
+
+impl Player {
+    pub fn new(
+        left_key: crossterm::event::KeyEvent,
+        right_key: crossterm::event::KeyEvent,
+        player_idx: usize,
+    ) -> Player {
+        Player {
+            snake: Snake::new(player_idx),
+            left_key: left_key,
+            right_key: right_key,
+            player_idx: player_idx,
+            score: 0,
+        }
+    }
 }

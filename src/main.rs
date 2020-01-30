@@ -4,8 +4,9 @@ use clap::{App, Arg};
 mod snake;
 
 use snake::{
-    add_snake_to_buffer, get_random_food_pos, move_snake, send_events, snake_item_collision,
-    Coordinate, GameContent, KeyEventQueue, ScreenBuffer,
+    add_snake_to_buffer, check_border_and_ego_collision, find_matches, get_random_food_pos,
+    move_snake, send_events, snake_item_collision, snake_snake_collision, Coordinate, GameContent,
+    KeyEventQueue, Player, ScreenBuffer,
 };
 
 use std::thread;
@@ -19,73 +20,6 @@ use crossterm::{
     terminal::{self, disable_raw_mode, enable_raw_mode},
     ExecutableCommand, Result,
 };
-
-fn find_matches<T: PartialEq + Copy>(look_in: &[T], look_for: &[T]) -> Vec<T> {
-    let mut found: Vec<T> = vec![];
-    for a in look_for {
-        for b in look_in {
-            if a == b {
-                found.push(*b);
-            }
-        }
-    }
-    return found;
-}
-
-#[derive(PartialEq, Clone, Debug)]
-struct Snake {
-    body_pos: Vec<Coordinate>,
-    // 0: up, 1: right, 2: down, 3: left
-    direction: i64,
-}
-
-impl Snake {
-    fn new(player_idx: usize) -> Snake {
-        let snake_body = vec![
-            Coordinate {
-                row: 18,
-                col: 10 + player_idx * 5,
-            },
-            Coordinate {
-                row: 19,
-                col: 10 + player_idx * 5,
-            },
-            Coordinate {
-                row: 20,
-                col: 10 + player_idx * 5,
-            },
-        ];
-        Snake {
-            body_pos: snake_body,
-            direction: 0,
-        }
-    }
-}
-
-#[derive(PartialEq, Clone, Debug)]
-struct Player {
-    score: usize,
-    left_key: crossterm::event::KeyEvent,
-    right_key: crossterm::event::KeyEvent,
-    snake: Snake,
-    player_idx: usize,
-}
-
-impl Player {
-    fn new(
-        left_key: crossterm::event::KeyEvent,
-        right_key: crossterm::event::KeyEvent,
-        player_idx: usize,
-    ) -> Player {
-        Player {
-            snake: Snake::new(player_idx),
-            left_key: left_key,
-            right_key: right_key,
-            player_idx: player_idx,
-            score: 0,
-        }
-    }
-}
 
 fn main() -> Result<()> {
     let matches = App::new("snake")
@@ -205,17 +139,16 @@ fn main() -> Result<()> {
 
             game_loop_begin = std::time::SystemTime::now();
             if let Some(events) = event_queue.get_all_events() {
-                // TODO: GET EVENTS MATCHING ONE OF ...
                 if !events.is_empty() {
-                    let esc_matches = find_matches(
+                    if !find_matches(
                         &events,
                         &vec![
                             KeyEvent::from(KeyCode::Esc),
                             KeyEvent::from(KeyCode::Char('q')),
                         ],
-                    );
-
-                    if !esc_matches.is_empty() {
+                    )
+                    .is_empty()
+                    {
                         must_exit = true;
                         break 'outer;
                     }
@@ -223,9 +156,9 @@ fn main() -> Result<()> {
                         let event_matches =
                             find_matches(&events, &vec![player.left_key, player.right_key]);
                         if !event_matches.is_empty() {
-                            if *events.last().unwrap() == player.left_key {
+                            if *event_matches.last().unwrap() == player.left_key {
                                 player.snake.direction -= 1;
-                            } else if *events.last().unwrap() == player.right_key {
+                            } else if *event_matches.last().unwrap() == player.right_key {
                                 player.snake.direction += 1;
                             }
                         }
@@ -240,7 +173,6 @@ fn main() -> Result<()> {
 
                 move_snake(&mut player.snake.body_pos, player.snake.direction);
             }
-            // TODO EVENTS CLEAR
 
             let mut food_found = false;
             for mut player in &mut players {
@@ -274,35 +206,31 @@ fn main() -> Result<()> {
             }
 
             // check for snake border and snake ego collisions
+
             for player in &players {
-                if player.snake.body_pos[0].row == 0
-                    || player.snake.body_pos[0].row == screen_height - 1
-                    || player.snake.body_pos[0].col == 0
-                    || player.snake.body_pos[0].col == screen_width - 1
-                    || snake_item_collision(&player.snake.body_pos[1..], &player.snake.body_pos[0])
-                {
+                if check_border_and_ego_collision(
+                    &player.snake.body_pos,
+                    screen_width,
+                    screen_height,
+                ) {
                     break 'outer;
                 }
             }
-            // TODO check snake vs snake collision!
+
             if num_players == 2 {
-                let coll_a_b = snake_item_collision(
-                    &players[0].snake.body_pos[1..],
-                    &players[1].snake.body_pos[0],
-                );
-                let coll_b_a = snake_item_collision(
-                    &players[1].snake.body_pos[1..],
-                    &players[0].snake.body_pos[0],
-                );
-                if coll_a_b || coll_b_a {
+                if snake_snake_collision(&players[0].snake.body_pos, &players[1].snake.body_pos)
+                    >= 0
+                {
                     break 'outer;
                 }
             }
 
             // clear, update and draw screen buffer
             screen_buffer.set_all(GameContent::Empty);
+            let mut player_id = 0;
             for player in &players {
-                add_snake_to_buffer(&mut screen_buffer, &player.snake.body_pos);
+                add_snake_to_buffer(&mut screen_buffer, &player.snake.body_pos, player_id);
+                player_id += 1;
             }
             screen_buffer.set_at(food_pos.row, food_pos.col, GameContent::Food);
             screen_buffer.add_border(GameContent::Border);
