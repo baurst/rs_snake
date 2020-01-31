@@ -81,8 +81,6 @@ fn main() -> Result<()> {
     let screen_width = 40;
     let screen_height = 40;
 
-    let mut must_exit = false;
-
     let mut screen_buffer = ScreenBuffer::new(screen_width, screen_height, GameContent::Empty);
 
     // clear screen
@@ -106,6 +104,7 @@ fn main() -> Result<()> {
         thread::sleep(Duration::from_secs(1));
     }
 
+    let mut must_exit = false;
     while !must_exit {
         let mut players = vec![Player::new(
             KeyEvent::from(KeyCode::Left),
@@ -133,6 +132,7 @@ fn main() -> Result<()> {
             // ensure constant cycle time of game loop (i.e. constant snake speed)
             let game_loop_runtime = game_loop_end.duration_since(game_loop_begin).unwrap();
             let target_cycle_time = horizontal_target_cycle_time;
+
             if game_loop_runtime < target_cycle_time {
                 thread::sleep(target_cycle_time - game_loop_runtime);
             }
@@ -165,12 +165,12 @@ fn main() -> Result<()> {
                     }
                 }
             }
+
             for mut player in &mut players {
                 player.snake.direction = match player.snake.direction {
                     -1 => 3,
                     _ => player.snake.direction % 4,
                 };
-
                 move_snake(&mut player.snake.body_pos, player.snake.direction);
             }
 
@@ -206,21 +206,22 @@ fn main() -> Result<()> {
             }
 
             // check for snake border and snake ego collisions
-
-            for player in &players {
+            for player in &mut players {
                 if check_border_and_ego_collision(
                     &player.snake.body_pos,
                     screen_width,
                     screen_height,
                 ) {
+                    player.has_crashed = true;
                     break 'outer;
                 }
             }
 
             if num_players == 2 {
-                if snake_snake_collision(&players[0].snake.body_pos, &players[1].snake.body_pos)
-                    >= 0
-                {
+                let collider =
+                    snake_snake_collision(&players[0].snake.body_pos, &players[1].snake.body_pos);
+                if collider >= 0 {
+                    players[collider as usize].has_crashed = true;
                     break 'outer;
                 }
             }
@@ -258,7 +259,6 @@ fn main() -> Result<()> {
         if num_players == 1 {
             screen_buffer.set_centered_text_at_row(
                 screen_height / 2 - 2,
-
                 &format!("Final Score: {}", players[0].score),
             );
         } else if num_players == 2 {
@@ -269,12 +269,19 @@ fn main() -> Result<()> {
                     players[0].score, players[1].score
                 ),
             );
+            for player in &players {
+                if !player.has_crashed {
+                    screen_buffer.set_centered_text_at_row(
+                        screen_height / 2 - 4,
+                        &format!("Player {} won!", player.player_idx + 1),
+                    );
+                }
+            }
         }
         if !must_exit {
             for n in (0..40).rev() {
                 screen_buffer.set_centered_text_at_row(
-                    screen_height/2 + 10,
-
+                    screen_height / 2 + 10,
                     &format!("Restarting in ... {}s", n / 10),
                 );
                 screen_buffer.set_centered_text_at_row(screen_height - 4, "ESC to abort");

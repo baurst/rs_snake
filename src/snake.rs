@@ -298,7 +298,7 @@ pub fn check_border_and_ego_collision(
         || snake_item_collision(&snake_body[1..], &snake_body[0]);
 }
 
-pub fn snake_snake_collision(snake_a: &[Coordinate], snake_b: &[Coordinate]) -> i32 {
+pub fn snake_snake_collision(snake_a: &[Coordinate], snake_b: &[Coordinate]) -> i64 {
     if snake_item_collision(&snake_a[1..], &snake_b[0]) {
         return 1;
     } else if snake_item_collision(&snake_b[1..], &snake_a[0]) {
@@ -364,6 +364,7 @@ pub struct Player {
     pub right_key: crossterm::event::KeyEvent,
     pub snake: Snake,
     pub player_idx: usize,
+    pub has_crashed: bool,
 }
 
 impl Player {
@@ -378,6 +379,7 @@ impl Player {
             right_key: right_key,
             player_idx: player_idx,
             score: 0,
+            has_crashed: false,
         }
     }
 }
