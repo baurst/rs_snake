@@ -78,7 +78,7 @@ fn main() -> Result<()> {
 
     stdout.execute(terminal::Clear(terminal::ClearType::All))?;
 
-    let screen_width = 60;
+    let screen_width = 40;
     let screen_height = 40;
 
     let mut must_exit = false;
@@ -87,21 +87,21 @@ fn main() -> Result<()> {
 
     // clear screen
     screen_buffer.set_all(GameContent::Empty);
-    screen_buffer.set_centered_text_at_row(screen_height / 2 - 4, "SNAKE");
-    screen_buffer.set_centered_text_at_row(screen_height / 2 - 2, "press ESC to stop");
+    screen_buffer.set_centered_text_at_row(screen_height / 2 - 6, "SNAKE");
+    screen_buffer.set_centered_text_at_row(screen_height / 2 - 4, "ESC to stop");
+    screen_buffer.set_centered_text_at_row(screen_height / 2 + 2, "~ CONTROLS ~");
 
     screen_buffer.set_centered_text_at_row(
-        screen_height / 2 + 2,
-        " Player 1: steer using left and right arrow keys",
+        screen_height / 2 + 4,
+        " Player 1: left and right arrow keys",
     );
 
     if num_players > 1 {
-        screen_buffer
-            .set_centered_text_at_row(screen_height / 2 + 4, "Player 2: steer using A and D arrow");
+        screen_buffer.set_centered_text_at_row(screen_height / 2 + 6, "Player 2: A and D");
     }
 
     for n in (0..5).rev() {
-        screen_buffer.set_centered_text_at_row(screen_height - 4, &format!("Starting in {}", n));
+        screen_buffer.set_centered_text_at_row(screen_height - 2, &format!("Starting in {}", n));
         screen_buffer.draw(&mut stdout)?;
         thread::sleep(Duration::from_secs(1));
     }
@@ -236,15 +236,11 @@ fn main() -> Result<()> {
             screen_buffer.add_border(GameContent::Border);
 
             if num_players == 1 {
-                screen_buffer
-                    .set_centered_text_at_row(0, &format!("SNAKE - Score: {}", players[0].score));
+                screen_buffer.set_centered_text_at_row(0, &format!("Score: {}", players[0].score));
             } else if num_players == 2 {
                 screen_buffer.set_centered_text_at_row(
                     0,
-                    &format!(
-                        "SNAKE - Score: P1: {} - P2 {}",
-                        players[0].score, players[1].score
-                    ),
+                    &format!("Score: P1: {} - P2 {}", players[0].score, players[1].score),
                 );
             }
 
@@ -257,18 +253,19 @@ fn main() -> Result<()> {
         screen_buffer.set_all(GameContent::Empty);
         screen_buffer.draw(&mut stdout)?;
 
-        screen_buffer.set_centered_text_at_row(screen_height / 2 - 2, "GAME OVER");
+        screen_buffer.set_centered_text_at_row(screen_height / 2 - 8, "! GAME OVER !");
 
         if num_players == 1 {
             screen_buffer.set_centered_text_at_row(
-                screen_height - 1,
-                &format!("SNAKE - Final Score: {}", players[0].score),
+                screen_height / 2 - 2,
+
+                &format!("Final Score: {}", players[0].score),
             );
         } else if num_players == 2 {
             screen_buffer.set_centered_text_at_row(
-                screen_height - 1,
+                screen_height / 2 - 2,
                 &format!(
-                    "SNAKE - Final Score: P1: {} - P2: {}",
+                    "Final Score: P1: {} - P2: {}",
                     players[0].score, players[1].score
                 ),
             );
@@ -276,10 +273,11 @@ fn main() -> Result<()> {
         if !must_exit {
             for n in (0..40).rev() {
                 screen_buffer.set_centered_text_at_row(
-                    screen_height / 2 + 2,
-                    &format!("Restarting in {}", n / 10),
+                    screen_height/2 + 10,
+
+                    &format!("Restarting in ... {}s", n / 10),
                 );
-                screen_buffer.set_centered_text_at_row(screen_height / 2 + 4, "ESC to abort");
+                screen_buffer.set_centered_text_at_row(screen_height - 4, "ESC to abort");
                 screen_buffer.draw(&mut stdout)?;
                 if let Some(event) = event_queue.get_latest_event() {
                     if event == KeyEvent::from(KeyCode::Esc)
