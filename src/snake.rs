@@ -22,8 +22,10 @@ pub struct KeyEventQueue<T: Send + Copy> {
 
 #[derive(Clone, Copy, Debug)]
 pub enum GameContent {
-    SnakeHead,
-    SnakeBody,
+    SnakeHeadA,
+    SnakeHeadB,
+    SnakeBodyA,
+    SnakeBodyB,
     Food,
     Border,
     Empty,
@@ -159,15 +161,25 @@ impl ScreenBuffer {
                             .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
                             .queue(style::PrintStyledContent("█".dark_blue()))?;
                     }
-                    GameContent::SnakeHead => {
+                    GameContent::SnakeHeadA => {
                         stdout
                             .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
                             .queue(style::PrintStyledContent("█".dark_green()))?;
                     }
-                    GameContent::SnakeBody => {
+                    GameContent::SnakeBodyA => {
                         stdout
                             .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
                             .queue(style::PrintStyledContent("█".green()))?;
+                    }
+                    GameContent::SnakeHeadB => {
+                        stdout
+                            .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
+                            .queue(style::PrintStyledContent("█".dark_yellow()))?;
+                    }
+                    GameContent::SnakeBodyB => {
+                        stdout
+                            .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
+                            .queue(style::PrintStyledContent("█".yellow()))?;
                     }
                     GameContent::Food => {
                         stdout
@@ -197,10 +209,24 @@ impl ScreenBuffer {
     }
 }
 
-pub fn add_snake_to_buffer(screen_buffer: &mut ScreenBuffer, snake: &Vec<Coordinate>) {
-    screen_buffer.set_at(snake[0].row, snake[0].col, GameContent::SnakeHead);
+pub fn add_snake_to_buffer(
+    screen_buffer: &mut ScreenBuffer,
+    snake: &Vec<Coordinate>,
+    player_idx: usize,
+) {
+    let head_content = if player_idx == 1 {
+        GameContent::SnakeHeadA
+    } else {
+        GameContent::SnakeHeadB
+    };
+    screen_buffer.set_at(snake[0].row, snake[0].col, head_content);
 
     // only use rest of the body
+    let body_content = if player_idx == 1 {
+        GameContent::SnakeBodyA
+    } else {
+        GameContent::SnakeBodyB
+    };
     let snake_body: Vec<&Coordinate> = snake
         .into_iter()
         .enumerate()
@@ -209,7 +235,7 @@ pub fn add_snake_to_buffer(screen_buffer: &mut ScreenBuffer, snake: &Vec<Coordin
         .collect();
 
     for coord in snake_body {
-        screen_buffer.set_at(coord.row, coord.col, GameContent::SnakeBody);
+        screen_buffer.set_at(coord.row, coord.col, body_content);
     }
 }
 
@@ -251,6 +277,18 @@ pub fn move_snake(snake: &mut Vec<Coordinate>, snake_direction: i64) {
 pub fn snake_item_collision(snake: &[Coordinate], item: &Coordinate) -> bool {
     let is_collision = snake.iter().position(|&r| r == *item);
     return is_collision.is_some();
+}
+
+pub fn check_border_and_ego_collision(
+    snake_body: &[Coordinate],
+    screen_width: usize,
+    screen_height: usize,
+) -> bool {
+    return snake_body[0].row == 0
+        || snake_body[0].row == screen_height - 1
+        || snake_body[0].col == 0
+        || snake_body[0].col == screen_width - 1
+        || snake_item_collision(&snake_body[1..], &snake_body[0]);
 }
 
 pub fn get_random_food_pos(screen_height: usize, screen_width: usize) -> Coordinate {

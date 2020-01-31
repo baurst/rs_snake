@@ -4,8 +4,9 @@ use clap::{App, Arg};
 mod snake;
 
 use snake::{
-    add_snake_to_buffer, find_matches, get_random_food_pos, move_snake, send_events,
-    snake_item_collision, Coordinate, GameContent, KeyEventQueue, Player, ScreenBuffer,
+    add_snake_to_buffer, check_border_and_ego_collision, find_matches, get_random_food_pos,
+    move_snake, send_events, snake_item_collision, Coordinate, GameContent, KeyEventQueue, Player,
+    ScreenBuffer,
 };
 
 use std::thread;
@@ -138,17 +139,16 @@ fn main() -> Result<()> {
 
             game_loop_begin = std::time::SystemTime::now();
             if let Some(events) = event_queue.get_all_events() {
-                // TODO: GET EVENTS MATCHING ONE OF ...
                 if !events.is_empty() {
-                    let esc_matches = find_matches(
+                    if !find_matches(
                         &events,
                         &vec![
                             KeyEvent::from(KeyCode::Esc),
                             KeyEvent::from(KeyCode::Char('q')),
                         ],
-                    );
-
-                    if !esc_matches.is_empty() {
+                    )
+                    .is_empty()
+                    {
                         must_exit = true;
                         break 'outer;
                     }
@@ -173,7 +173,6 @@ fn main() -> Result<()> {
 
                 move_snake(&mut player.snake.body_pos, player.snake.direction);
             }
-            // TODO EVENTS CLEAR
 
             let mut food_found = false;
             for mut player in &mut players {
@@ -207,35 +206,35 @@ fn main() -> Result<()> {
             }
 
             // check for snake border and snake ego collisions
+
             for player in &players {
-                if player.snake.body_pos[0].row == 0
-                    || player.snake.body_pos[0].row == screen_height - 1
-                    || player.snake.body_pos[0].col == 0
-                    || player.snake.body_pos[0].col == screen_width - 1
-                    || snake_item_collision(&player.snake.body_pos[1..], &player.snake.body_pos[0])
-                {
+                if check_border_and_ego_collision(
+                    &player.snake.body_pos,
+                    screen_width,
+                    screen_height,
+                ) {
                     break 'outer;
                 }
             }
-            // TODO check snake vs snake collision!
+
             if num_players == 2 {
-                let coll_a_b = snake_item_collision(
+                if snake_item_collision(
                     &players[0].snake.body_pos[1..],
                     &players[1].snake.body_pos[0],
-                );
-                let coll_b_a = snake_item_collision(
+                ) || snake_item_collision(
                     &players[1].snake.body_pos[1..],
                     &players[0].snake.body_pos[0],
-                );
-                if coll_a_b || coll_b_a {
+                ) {
                     break 'outer;
                 }
             }
 
             // clear, update and draw screen buffer
             screen_buffer.set_all(GameContent::Empty);
+            let mut player_id = 0;
             for player in &players {
-                add_snake_to_buffer(&mut screen_buffer, &player.snake.body_pos);
+                add_snake_to_buffer(&mut screen_buffer, &player.snake.body_pos, player_id);
+                player_id += 1;
             }
             screen_buffer.set_at(food_pos.row, food_pos.col, GameContent::Food);
             screen_buffer.add_border(GameContent::Border);
