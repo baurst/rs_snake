@@ -259,3 +259,70 @@ pub fn get_random_food_pos(screen_height: usize, screen_width: usize) -> Coordin
     let col = rng.gen_range(1, screen_width - 1);
     return Coordinate { row: row, col: col };
 }
+
+pub fn find_matches<T: PartialEq + Copy>(look_in: &[T], look_for: &[T]) -> Vec<T> {
+    let mut found: Vec<T> = vec![];
+    for a in look_for {
+        for b in look_in {
+            if a == b {
+                found.push(*b);
+            }
+        }
+    }
+    return found;
+}
+
+#[derive(PartialEq, Clone, Debug)]
+pub struct Snake {
+    pub body_pos: Vec<Coordinate>,
+    // 0: up, 1: right, 2: down, 3: left
+    pub direction: i64,
+}
+
+impl Snake {
+    pub fn new(player_idx: usize) -> Snake {
+        let snake_body = vec![
+            Coordinate {
+                row: 18,
+                col: 10 + player_idx * 5,
+            },
+            Coordinate {
+                row: 19,
+                col: 10 + player_idx * 5,
+            },
+            Coordinate {
+                row: 20,
+                col: 10 + player_idx * 5,
+            },
+        ];
+        Snake {
+            body_pos: snake_body,
+            direction: 0,
+        }
+    }
+}
+
+#[derive(PartialEq, Clone, Debug)]
+pub struct Player {
+    pub score: usize,
+    pub left_key: crossterm::event::KeyEvent,
+    pub right_key: crossterm::event::KeyEvent,
+    pub snake: Snake,
+    pub player_idx: usize,
+}
+
+impl Player {
+    pub fn new(
+        left_key: crossterm::event::KeyEvent,
+        right_key: crossterm::event::KeyEvent,
+        player_idx: usize,
+    ) -> Player {
+        Player {
+            snake: Snake::new(player_idx),
+            left_key: left_key,
+            right_key: right_key,
+            player_idx: player_idx,
+            score: 0,
+        }
+    }
+}

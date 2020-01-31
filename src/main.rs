@@ -4,8 +4,8 @@ use clap::{App, Arg};
 mod snake;
 
 use snake::{
-    add_snake_to_buffer, get_random_food_pos, move_snake, send_events, snake_item_collision,
-    Coordinate, GameContent, KeyEventQueue, ScreenBuffer,
+    add_snake_to_buffer, find_matches, get_random_food_pos, move_snake, send_events,
+    snake_item_collision, Coordinate, GameContent, KeyEventQueue, Player, ScreenBuffer,
 };
 
 use std::thread;
@@ -19,73 +19,6 @@ use crossterm::{
     terminal::{self, disable_raw_mode, enable_raw_mode},
     ExecutableCommand, Result,
 };
-
-fn find_matches<T: PartialEq + Copy>(look_in: &[T], look_for: &[T]) -> Vec<T> {
-    let mut found: Vec<T> = vec![];
-    for a in look_for {
-        for b in look_in {
-            if a == b {
-                found.push(*b);
-            }
-        }
-    }
-    return found;
-}
-
-#[derive(PartialEq, Clone, Debug)]
-struct Snake {
-    body_pos: Vec<Coordinate>,
-    // 0: up, 1: right, 2: down, 3: left
-    direction: i64,
-}
-
-impl Snake {
-    fn new(player_idx: usize) -> Snake {
-        let snake_body = vec![
-            Coordinate {
-                row: 18,
-                col: 10 + player_idx * 5,
-            },
-            Coordinate {
-                row: 19,
-                col: 10 + player_idx * 5,
-            },
-            Coordinate {
-                row: 20,
-                col: 10 + player_idx * 5,
-            },
-        ];
-        Snake {
-            body_pos: snake_body,
-            direction: 0,
-        }
-    }
-}
-
-#[derive(PartialEq, Clone, Debug)]
-struct Player {
-    score: usize,
-    left_key: crossterm::event::KeyEvent,
-    right_key: crossterm::event::KeyEvent,
-    snake: Snake,
-    player_idx: usize,
-}
-
-impl Player {
-    fn new(
-        left_key: crossterm::event::KeyEvent,
-        right_key: crossterm::event::KeyEvent,
-        player_idx: usize,
-    ) -> Player {
-        Player {
-            snake: Snake::new(player_idx),
-            left_key: left_key,
-            right_key: right_key,
-            player_idx: player_idx,
-            score: 0,
-        }
-    }
-}
 
 fn main() -> Result<()> {
     let matches = App::new("snake")
