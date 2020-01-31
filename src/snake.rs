@@ -153,53 +153,60 @@ impl ScreenBuffer {
 
     pub fn draw(&self, stdout: &mut std::io::Stdout) -> Result<()> {
         for row_idx in 0..self.screen_height {
-            for col_idx in 0..self.screen_width {
-                let content = self.get_at(row_idx, col_idx);
-                match content {
-                    GameContent::Border => {
-                        stdout
-                            .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
-                            .queue(style::PrintStyledContent("█".dark_blue()))?;
-                    }
-                    GameContent::SnakeHeadA => {
-                        stdout
-                            .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
-                            .queue(style::PrintStyledContent("█".dark_green()))?;
-                    }
-                    GameContent::SnakeBodyA => {
-                        stdout
-                            .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
-                            .queue(style::PrintStyledContent("█".green()))?;
-                    }
-                    GameContent::SnakeHeadB => {
-                        stdout
-                            .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
-                            .queue(style::PrintStyledContent("█".dark_yellow()))?;
-                    }
-                    GameContent::SnakeBodyB => {
-                        stdout
-                            .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
-                            .queue(style::PrintStyledContent("█".yellow()))?;
-                    }
-                    GameContent::Food => {
-                        stdout
-                            .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
-                            .queue(style::PrintStyledContent("█".red()))?;
-                    }
-                    GameContent::Empty => {
-                        stdout
-                            .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
-                            .queue(style::PrintStyledContent("█".dark_grey()))?;
-                    }
-                    GameContent::Character(character) => {
-                        let styled_c: crossterm::style::StyledContent<String> =
-                            crossterm::style::style(character.to_string())
-                                .attribute(Attribute::Bold)
-                                .red()
-                                .on_dark_grey();
-                        stdout
-                            .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
-                            .queue(style::PrintStyledContent(styled_c))?;
+            for col_idx_buffer in 0..self.screen_width {
+                let content = self.get_at(row_idx, col_idx_buffer);
+                for i in 0..2 {
+                    let col_idx = 2 * col_idx_buffer + i;
+                    match content {
+                        GameContent::Border => {
+                            stdout
+                                .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
+                                .queue(style::PrintStyledContent("█".dark_blue()))?;
+                        }
+                        GameContent::SnakeHeadA => {
+                            stdout
+                                .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
+                                .queue(style::PrintStyledContent("█".dark_green()))?;
+                        }
+                        GameContent::SnakeBodyA => {
+                            stdout
+                                .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
+                                .queue(style::PrintStyledContent("█".green()))?;
+                        }
+                        GameContent::SnakeHeadB => {
+                            stdout
+                                .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
+                                .queue(style::PrintStyledContent("█".dark_yellow()))?;
+                        }
+                        GameContent::SnakeBodyB => {
+                            stdout
+                                .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
+                                .queue(style::PrintStyledContent("█".yellow()))?;
+                        }
+                        GameContent::Food => {
+                            stdout
+                                .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
+                                .queue(style::PrintStyledContent("█".red()))?;
+                        }
+                        GameContent::Empty => {
+                            stdout
+                                .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
+                                .queue(style::PrintStyledContent("█".dark_grey()))?;
+                        }
+                        GameContent::Character(character) => {
+                            let is_first_char = i == 0;
+                            let styled_c: crossterm::style::StyledContent<String> =
+                                match is_first_char {
+                                    true => crossterm::style::style(character.to_string())
+                                        .attribute(Attribute::Bold)
+                                        .red()
+                                        .on_dark_grey(),
+                                    _ => crossterm::style::style("█".to_string()).dark_grey(),
+                                };
+                            stdout
+                                .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
+                                .queue(style::PrintStyledContent(styled_c))?;
+                        }
                     }
                 }
             }

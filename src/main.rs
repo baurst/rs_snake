@@ -78,7 +78,7 @@ fn main() -> Result<()> {
 
     stdout.execute(terminal::Clear(terminal::ClearType::All))?;
 
-    let screen_width = 80;
+    let screen_width = 60;
     let screen_height = 40;
 
     let mut must_exit = false;
