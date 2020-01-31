@@ -291,6 +291,16 @@ pub fn check_border_and_ego_collision(
         || snake_item_collision(&snake_body[1..], &snake_body[0]);
 }
 
+pub fn snake_snake_collision(snake_a: &[Coordinate], snake_b: &[Coordinate]) -> i32 {
+    if snake_item_collision(&snake_a[1..], &snake_b[0]) {
+        return 1;
+    } else if snake_item_collision(&snake_b[1..], &snake_a[0]) {
+        return 0;
+    } else {
+        return -1;
+    }
+}
+
 pub fn get_random_food_pos(screen_height: usize, screen_width: usize) -> Coordinate {
     let mut rng = rand::thread_rng();
     let row = rng.gen_range(1, screen_height - 1);

@@ -5,8 +5,8 @@ mod snake;
 
 use snake::{
     add_snake_to_buffer, check_border_and_ego_collision, find_matches, get_random_food_pos,
-    move_snake, send_events, snake_item_collision, Coordinate, GameContent, KeyEventQueue, Player,
-    ScreenBuffer,
+    move_snake, send_events, snake_item_collision, snake_snake_collision, Coordinate, GameContent,
+    KeyEventQueue, Player, ScreenBuffer,
 };
 
 use std::thread;
@@ -218,13 +218,9 @@ fn main() -> Result<()> {
             }
 
             if num_players == 2 {
-                if snake_item_collision(
-                    &players[0].snake.body_pos[1..],
-                    &players[1].snake.body_pos[0],
-                ) || snake_item_collision(
-                    &players[1].snake.body_pos[1..],
-                    &players[0].snake.body_pos[0],
-                ) {
+                if snake_snake_collision(&players[0].snake.body_pos, &players[1].snake.body_pos)
+                    >= 0
+                {
                     break 'outer;
                 }
             }
