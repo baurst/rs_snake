@@ -36,7 +36,7 @@ fn main() -> Result<()> {
         )
         .get_matches();
 
-    let mut target_fps = 12.0;
+    let mut target_fps = 10.0;
     if matches.is_present("hard") {
         target_fps *= 1.5;
     } else if matches.is_present("easy") {

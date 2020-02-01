@@ -368,7 +368,6 @@ impl Snake {
 
 #[derive(PartialEq, Clone, Debug)]
 pub struct Player {
-    pub score: usize,
     pub left_key: crossterm::event::KeyEvent,
     pub right_key: crossterm::event::KeyEvent,
     pub snake: Snake,
@@ -387,7 +386,6 @@ impl Player {
             left_key: left_key,
             right_key: right_key,
             player_idx: player_idx,
-            score: 0,
             has_crashed: false,
         }
     }
@@ -455,7 +453,7 @@ pub fn run(target_fps: f32, num_players: usize) -> Result<()> {
         let mut game_loop_begin = std::time::SystemTime::now();
         let mut game_loop_end = std::time::SystemTime::now();
         let horizontal_target_cycle_time = Duration::from_secs_f32(1.0 / target_fps);
-
+        let mut score = 0;
         'outer: loop {
             // ensure constant cycle time of game loop (i.e. constant snake speed)
             let game_loop_runtime = game_loop_end.duration_since(game_loop_begin).unwrap();
@@ -503,9 +501,9 @@ pub fn run(target_fps: f32, num_players: usize) -> Result<()> {
             }
 
             let mut food_found = false;
-            for mut player in &mut players {
+            for player in &mut players {
                 if player.snake.body_pos[0] == food_pos {
-                    player.score += 1;
+                    score += 1;
                     food_found = true;
 
                     // grow snake
@@ -564,14 +562,7 @@ pub fn run(target_fps: f32, num_players: usize) -> Result<()> {
             screen_buffer.set_at(food_pos.row, food_pos.col, GameContent::Food);
             screen_buffer.add_border(GameContent::Border);
 
-            if num_players == 1 {
-                screen_buffer.set_centered_text_at_row(0, &format!("Score: {}", players[0].score));
-            } else if num_players == 2 {
-                screen_buffer.set_centered_text_at_row(
-                    0,
-                    &format!("Score: P1: {} - P2 {}", players[0].score, players[1].score),
-                );
-            }
+            screen_buffer.set_centered_text_at_row(0, &format!("Score: {}", score));
 
             screen_buffer.draw(&mut stdout)?;
 
@@ -584,28 +575,9 @@ pub fn run(target_fps: f32, num_players: usize) -> Result<()> {
 
         screen_buffer.set_centered_text_at_row(screen_height / 2 - 8, "! GAME OVER !");
 
-        if num_players == 1 {
-            screen_buffer.set_centered_text_at_row(
-                screen_height / 2 - 2,
-                &format!("Final Score: {}", players[0].score),
-            );
-        } else if num_players == 2 {
-            screen_buffer.set_centered_text_at_row(
-                screen_height / 2 - 2,
-                &format!(
-                    "Final Score: P1: {} - P2: {}",
-                    players[0].score, players[1].score
-                ),
-            );
-            for player in &players {
-                if !player.has_crashed {
-                    screen_buffer.set_centered_text_at_row(
-                        screen_height / 2 - 4,
-                        &format!("Player {} won!", player.player_idx + 1),
-                    );
-                }
-            }
-        }
+        screen_buffer
+            .set_centered_text_at_row(screen_height / 2 - 2, &format!("Final Score: {}", score));
+
         if !must_exit {
             for n in (0..40).rev() {
                 screen_buffer.set_centered_text_at_row(
