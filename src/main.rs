@@ -1,6 +1,8 @@
 extern crate clap;
 use clap::{App, Arg};
 
+mod events;
+mod screen_buffer;
 mod snake;
 
 use crossterm::Result;

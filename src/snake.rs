@@ -1,17 +1,17 @@
 use rand::Rng;
-use std::collections::VecDeque;
-use std::io::{stdout, Write};
-use std::sync::{Arc, Mutex};
+use std::io::stdout;
 use std::thread;
 use std::time::Duration;
 
 use crossterm::{
     cursor::{self},
-    event::{poll, read, Event, KeyCode, KeyEvent},
-    style::{self, Attribute, Colorize},
+    event::{KeyCode, KeyEvent},
     terminal::{self, disable_raw_mode, enable_raw_mode},
-    ExecutableCommand, QueueableCommand, Result,
+    ExecutableCommand, Result,
 };
+
+use crate::events::{send_events, KeyEventQueue};
+use crate::screen_buffer::{Coordinate, GameContent, ScreenBuffer};
 
 pub struct SnakeGame {
     num_players: usize,
@@ -244,237 +244,6 @@ impl SnakeGame {
     }
 }
 
-#[derive(Clone)]
-pub struct KeyEventQueue<T: Send + Copy> {
-    inner: Arc<Mutex<VecDeque<T>>>,
-}
-
-#[derive(Clone, Copy, Debug)]
-pub enum GameContent {
-    SnakeHeadA,
-    SnakeHeadB,
-    SnakeBodyA,
-    SnakeBodyB,
-    Food,
-    Border,
-    Empty,
-    Character(char),
-}
-
-impl<T: Send + Copy> KeyEventQueue<T> {
-    pub fn new() -> Self {
-        Self {
-            inner: Arc::new(Mutex::new(VecDeque::new())),
-        }
-    }
-
-    pub fn get_latest_event(&self) -> Option<T> {
-        let maybe_queue = self.inner.lock();
-
-        if let Ok(mut queue) = maybe_queue {
-            let el = queue.pop_back();
-            queue.clear();
-            return el;
-        } else {
-            panic!("poisoned mutex");
-        }
-    }
-
-    pub fn get_all_events(&self) -> Option<Vec<T>> {
-        let maybe_queue = self.inner.lock();
-
-        if let Ok(mut queue) = maybe_queue {
-            let drained = queue.drain(..).collect::<Vec<_>>();
-            queue.clear();
-            return Some(drained);
-        } else {
-            panic!("poisoned mutex");
-        }
-    }
-
-    fn add_event(&self, event: T) -> usize {
-        if let Ok(mut queue) = self.inner.lock() {
-            queue.push_back(event);
-            queue.len()
-        } else {
-            panic!("poisoned mutex");
-        }
-    }
-}
-
-pub fn send_events(event_queue: KeyEventQueue<KeyEvent>) -> crossterm::Result<()> {
-    loop {
-        if poll(Duration::from_millis(3))? {
-            match read()? {
-                // will not block
-                Event::Key(event) => {
-                    event_queue.add_event(event);
-                }
-                Event::Mouse(_event) => {}
-                Event::Resize(_width, _height) => {}
-            }
-        }
-    }
-}
-
-#[derive(PartialEq, Clone, Copy, Debug)]
-pub struct Coordinate {
-    pub row: usize,
-    pub col: usize,
-}
-
-pub struct ScreenBuffer {
-    screen_width: usize,
-    screen_height: usize,
-    buffer: Vec<GameContent>,
-}
-
-impl ScreenBuffer {
-    pub fn new(
-        screen_width: usize,
-        screen_height: usize,
-        initial_content: GameContent,
-    ) -> ScreenBuffer {
-        ScreenBuffer {
-            screen_height: screen_height,
-            screen_width: screen_width,
-            buffer: vec![initial_content; screen_height * screen_width],
-        }
-    }
-
-    pub fn set_all(&mut self, content: GameContent) {
-        for screen_char in self.buffer.iter_mut() {
-            *screen_char = content;
-        }
-    }
-
-    pub fn set_centered_text_at_row(&mut self, target_row: usize, message: &str) {
-        let str_chars = message.chars();
-        let str_len = str_chars.clone().count();
-        let header_start_idx = ((self.screen_width - str_len) / 2 as usize).max(0);
-
-        let mut col_idx = header_start_idx;
-
-        for sym in str_chars {
-            self.set_at(target_row, col_idx, GameContent::Character(sym));
-            col_idx += 1;
-        }
-    }
-
-    pub fn get_at(&self, row: usize, col: usize) -> GameContent {
-        return self.buffer[col + row * self.screen_width];
-    }
-
-    pub fn set_at(&mut self, row: usize, col: usize, content: GameContent) {
-        self.buffer[col + row * self.screen_width] = content;
-    }
-
-    pub fn add_border(&mut self, border_symbol: GameContent) {
-        for row in 0..self.screen_height {
-            self.set_at(row, 0, border_symbol);
-            self.set_at(row, self.screen_width - 1, border_symbol);
-        }
-        for col in 0..self.screen_width {
-            self.set_at(0, col, border_symbol);
-            self.set_at(self.screen_height - 1, col, border_symbol);
-        }
-    }
-
-    pub fn draw(&self, stdout: &mut std::io::Stdout) -> Result<()> {
-        for row_idx in 0..self.screen_height {
-            for col_idx_buffer in 0..self.screen_width {
-                let content = self.get_at(row_idx, col_idx_buffer);
-                for i in 0..2 {
-                    let col_idx = 2 * col_idx_buffer + i;
-                    match content {
-                        GameContent::Border => {
-                            stdout
-                                .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
-                                .queue(style::PrintStyledContent("█".dark_blue()))?;
-                        }
-                        GameContent::SnakeHeadA => {
-                            stdout
-                                .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
-                                .queue(style::PrintStyledContent("█".dark_green()))?;
-                        }
-                        GameContent::SnakeBodyA => {
-                            stdout
-                                .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
-                                .queue(style::PrintStyledContent("█".green()))?;
-                        }
-                        GameContent::SnakeHeadB => {
-                            stdout
-                                .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
-                                .queue(style::PrintStyledContent("█".dark_yellow()))?;
-                        }
-                        GameContent::SnakeBodyB => {
-                            stdout
-                                .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
-                                .queue(style::PrintStyledContent("█".yellow()))?;
-                        }
-                        GameContent::Food => {
-                            stdout
-                                .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
-                                .queue(style::PrintStyledContent("█".red()))?;
-                        }
-                        GameContent::Empty => {
-                            stdout
-                                .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
-                                .queue(style::PrintStyledContent("█".dark_grey()))?;
-                        }
-                        GameContent::Character(character) => {
-                            let is_first_char = i == 0;
-                            let styled_c: crossterm::style::StyledContent<String> =
-                                match is_first_char {
-                                    true => crossterm::style::style(character.to_string())
-                                        .attribute(Attribute::Bold)
-                                        .red()
-                                        .on_dark_grey(),
-                                    _ => crossterm::style::style("█".to_string()).dark_grey(),
-                                };
-                            stdout
-                                .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
-                                .queue(style::PrintStyledContent(styled_c))?;
-                        }
-                    }
-                }
-            }
-        }
-        stdout.flush()?;
-        Ok(())
-    }
-}
-
-pub fn add_snake_to_buffer(
-    screen_buffer: &mut ScreenBuffer,
-    snake: &Vec<Coordinate>,
-    player_idx: usize,
-) {
-    let head_content = if player_idx == 1 {
-        GameContent::SnakeHeadA
-    } else {
-        GameContent::SnakeHeadB
-    };
-    screen_buffer.set_at(snake[0].row, snake[0].col, head_content);
-
-    // only use rest of the body
-    let body_content = if player_idx == 1 {
-        GameContent::SnakeBodyA
-    } else {
-        GameContent::SnakeBodyB
-    };
-    let snake_body: Vec<&Coordinate> = snake
-        .into_iter()
-        .enumerate()
-        .filter(|&(i, _)| i != 0)
-        .map(|(_, v)| v)
-        .collect();
-
-    for coord in snake_body {
-        screen_buffer.set_at(coord.row, coord.col, body_content);
-    }
-}
-
 pub fn move_snake(snake: &mut Vec<Coordinate>, snake_direction: i64) {
     // add head in new direction
     let new_head = match snake_direction {
@@ -608,5 +377,35 @@ impl Player {
             player_idx: player_idx,
             has_crashed: false,
         }
+    }
+}
+
+pub fn add_snake_to_buffer(
+    screen_buffer: &mut ScreenBuffer,
+    snake: &Vec<Coordinate>,
+    player_idx: usize,
+) {
+    let head_content = if player_idx == 1 {
+        GameContent::SnakeHeadA
+    } else {
+        GameContent::SnakeHeadB
+    };
+    screen_buffer.set_at(snake[0].row, snake[0].col, head_content);
+
+    // only use rest of the body
+    let body_content = if player_idx == 1 {
+        GameContent::SnakeBodyA
+    } else {
+        GameContent::SnakeBodyB
+    };
+    let snake_body: Vec<&Coordinate> = snake
+        .into_iter()
+        .enumerate()
+        .filter(|&(i, _)| i != 0)
+        .map(|(_, v)| v)
+        .collect();
+
+    for coord in snake_body {
+        screen_buffer.set_at(coord.row, coord.col, body_content);
     }
 }
