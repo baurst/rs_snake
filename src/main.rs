@@ -4,7 +4,7 @@ use clap::{App, Arg};
 mod snake;
 
 use crossterm::Result;
-use snake::run;
+use snake::SnakeGame;
 
 fn main() -> Result<()> {
     let matches = App::new("snake")
@@ -51,5 +51,5 @@ fn main() -> Result<()> {
     }
     let num_players = num_players;
 
-    run(target_fps, num_players)
+    SnakeGame::new(num_players, target_fps).run()
 }
