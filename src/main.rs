@@ -10,7 +10,7 @@ use snake::SnakeGame;
 
 fn main() -> Result<()> {
     let matches = App::new("snake")
-        .version("0.1")
+        .version("0.2.0")
         .author("Author: baurst")
         .about("Classic snake game for your terminal")
         .arg(
