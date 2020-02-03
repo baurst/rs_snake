@@ -11,13 +11,13 @@ use snake::SnakeGame;
 fn main() -> Result<()> {
     let matches = App::new("snake")
         .version("0.1")
-        .author("baurst")
-        .about("classic snake game for your terminal")
+        .author("Author: baurst")
+        .about("Classic snake game for your terminal")
         .arg(
             Arg::with_name("easy")
                 .short("e")
                 .long("easy")
-                .help("difficulty easy")
+                .help("sets difficulty to easy")
                 .takes_value(false)
                 .conflicts_with("hard"),
         )
@@ -25,7 +25,7 @@ fn main() -> Result<()> {
             Arg::with_name("hard")
                 .short("h")
                 .long("hard")
-                .help("difficulty hard")
+                .help("sets difficulty to hard")
                 .takes_value(false)
                 .conflicts_with("easy"),
         )
@@ -33,7 +33,7 @@ fn main() -> Result<()> {
             Arg::with_name("multiplayer")
                 .short("m")
                 .long("multi")
-                .help("enable multiplayer support")
+                .help("enables multiplayer mode")
                 .takes_value(false),
         )
         .get_matches();
