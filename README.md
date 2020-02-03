@@ -1,12 +1,11 @@
-# Snake ...
-
-... with your firends ...
-
-... on your command line!
-
-
 [![Build Status](https://travis-ci.com/baurst/rs_snake.svg?token=KGmoNyosUqTq92iqGZE9&branch=master)](https://travis-ci.com/baurst/rs_snake) 
 
+
+# Snake ...
+
+... with your friends ...
+
+... on your command line!
 
 This is an implementation of the classic game Snake in Rust.
 It runs in all UNIX and Windows terminals without using any GUI framework or window manager.
@@ -31,13 +30,17 @@ cargo run --release
 At the moment, up to two players are supported. The controls for making the snake turn left or right are:
 * Player 1: :arrow_left: and :arrow_right: arrow keys
 * Player 2: A and D keys
+
 Pressing Esc or q will terminate the game.
 
 
 ## Options
-The game provides multiple options, all of which should be self explanatory when looking at the following help text:
+The game provides options to change to __multiplayer__ mode (using __--multi__).
+
+Difficulty of the game (i.e. speed of the snake) is adjustable using either __--easy__ or __--hard__:
+
 ```bash
-$: snake --help
+$ snake --help
 snake 0.1
 Author: baurst
 Classic snake game for your terminal
