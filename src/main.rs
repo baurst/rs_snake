@@ -10,7 +10,7 @@ use snake::SnakeGame;
 
 fn main() -> Result<()> {
     let matches = App::new("snake")
-        .version("0.2.0")
+        .version("0.2.1")
         .author("Author: baurst")
         .about("Classic snake game for your terminal")
         .arg(
@@ -38,7 +38,7 @@ fn main() -> Result<()> {
         )
         .get_matches();
 
-    let mut target_fps = 10.0;
+    let mut target_fps = 8.0;
     if matches.is_present("hard") {
         target_fps *= 1.5;
     } else if matches.is_present("easy") {

@@ -153,19 +153,20 @@ impl SnakeGame {
                 }
 
                 if food_found {
-                    let mut new_food_pos = get_random_food_pos(screen_height, screen_width);
-                    let mut no_collision = false;
-                    while !no_collision {
-                        new_food_pos = get_random_food_pos(screen_height, screen_width);
-                        for player in &players {
-                            let collides =
-                                snake_item_collision(&player.snake.body_pos, &new_food_pos);
-                            if !collides {
-                                no_collision = true;
-                            }
+                    loop {
+                        let new_food_pos = get_random_food_pos(screen_height, screen_width);
+                        let has_collision = players
+                            .iter()
+                            .find(|player| {
+                                snake_item_collision(&player.snake.body_pos, &new_food_pos)
+                            })
+                            .is_some();
+
+                        if !has_collision {
+                            food_pos = new_food_pos;
+                            break;
                         }
                     }
-                    food_pos = new_food_pos;
                 }
 
                 // check for snake border and snake ego collisions
