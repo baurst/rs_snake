@@ -8,10 +8,8 @@ use crossterm::{
 
 #[derive(Clone, Copy, Debug)]
 pub enum GameContent {
-    SnakeHeadA,
-    SnakeHeadB,
-    SnakeBodyA,
-    SnakeBodyB,
+    SnakeHead(usize),
+    SnakeBody(usize),
     Food,
     Border,
     Empty,
@@ -93,25 +91,27 @@ impl ScreenBuffer {
                                 .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
                                 .queue(style::PrintStyledContent("█".dark_blue()))?;
                         }
-                        GameContent::SnakeHeadA => {
-                            stdout
-                                .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
-                                .queue(style::PrintStyledContent("█".dark_green()))?;
+                        GameContent::SnakeHead(player_idx) => {
+                            if player_idx == 0 {
+                                stdout
+                                    .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
+                                    .queue(style::PrintStyledContent("█".dark_green()))?;
+                            } else if player_idx == 1 {
+                                stdout
+                                    .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
+                                    .queue(style::PrintStyledContent("█".dark_yellow()))?;
+                            }
                         }
-                        GameContent::SnakeBodyA => {
-                            stdout
-                                .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
-                                .queue(style::PrintStyledContent("█".green()))?;
-                        }
-                        GameContent::SnakeHeadB => {
-                            stdout
-                                .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
-                                .queue(style::PrintStyledContent("█".dark_yellow()))?;
-                        }
-                        GameContent::SnakeBodyB => {
-                            stdout
-                                .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
-                                .queue(style::PrintStyledContent("█".yellow()))?;
+                        GameContent::SnakeBody(player_idx) => {
+                            if player_idx == 0 {
+                                stdout
+                                    .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
+                                    .queue(style::PrintStyledContent("█".green()))?;
+                            } else if player_idx == 1 {
+                                stdout
+                                    .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
+                                    .queue(style::PrintStyledContent("█".yellow()))?;
+                            }
                         }
                         GameContent::Food => {
                             stdout

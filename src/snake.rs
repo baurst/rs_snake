@@ -386,19 +386,13 @@ pub fn add_snake_to_buffer(
     snake: &Vec<Coordinate>,
     player_idx: usize,
 ) {
-    let head_content = if player_idx == 1 {
-        GameContent::SnakeHeadA
-    } else {
-        GameContent::SnakeHeadB
-    };
-    screen_buffer.set_at(snake[0].row, snake[0].col, head_content);
+    screen_buffer.set_at(
+        snake[0].row,
+        snake[0].col,
+        GameContent::SnakeHead(player_idx),
+    );
 
     // only use rest of the body
-    let body_content = if player_idx == 1 {
-        GameContent::SnakeBodyA
-    } else {
-        GameContent::SnakeBodyB
-    };
     let snake_body: Vec<&Coordinate> = snake
         .into_iter()
         .enumerate()
@@ -407,6 +401,6 @@ pub fn add_snake_to_buffer(
         .collect();
 
     for coord in snake_body {
-        screen_buffer.set_at(coord.row, coord.col, body_content);
+        screen_buffer.set_at(coord.row, coord.col, GameContent::SnakeBody(player_idx));
     }
 }
