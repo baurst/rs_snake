@@ -36,6 +36,13 @@ fn main() -> Result<()> {
                 .help("enables multiplayer mode")
                 .takes_value(false),
         )
+        .arg(
+            Arg::with_name("two_key_steering")
+                .short("t")
+                .long("two_key_steering")
+                .help("steer the snakes using two keys only (increased difficulty)")
+                .takes_value(false),
+        )
         .get_matches();
 
     let mut target_fps = 8.0;
@@ -53,5 +60,7 @@ fn main() -> Result<()> {
     }
     let num_players = num_players;
 
-    SnakeGame::new(num_players, target_fps).run()
+    let is_four_key_steering = !matches.is_present("two_key_steering");
+
+    SnakeGame::new(num_players, target_fps, is_four_key_steering).run()
 }

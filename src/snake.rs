@@ -16,13 +16,15 @@ use crate::screen_buffer::{Coordinate, GameContent, ScreenBuffer};
 pub struct SnakeGame {
     num_players: usize,
     target_fps: f64,
+    is_four_key_steering: bool,
 }
 
 impl SnakeGame {
-    pub fn new(num_players: usize, target_fps: f64) -> SnakeGame {
+    pub fn new(num_players: usize, target_fps: f64, is_four_key_steering: bool) -> SnakeGame {
         return SnakeGame {
             num_players: num_players,
             target_fps: target_fps,
+            is_four_key_steering: is_four_key_steering,
         };
     }
 
@@ -52,11 +54,22 @@ impl SnakeGame {
 
         screen_buffer.set_centered_text_at_row(
             screen_height / 2 + 4,
-            " Player 1: left and right arrow keys",
+            if self.is_four_key_steering {
+                "Player 1: arrow keys"
+            } else {
+                "Player 1: left and right arrow keys"
+            },
         );
 
         if self.num_players > 1 {
-            screen_buffer.set_centered_text_at_row(screen_height / 2 + 6, "Player 2: A and D");
+            screen_buffer.set_centered_text_at_row(
+                screen_height / 2 + 6,
+                if self.is_four_key_steering {
+                    "Player 2: W A S D keys"
+                } else {
+                    "Player 2: A and D keys"
+                },
+            );
         }
 
         for n in (0..5).rev() {
@@ -71,12 +84,16 @@ impl SnakeGame {
             let mut players = vec![Player::new(
                 KeyEvent::from(KeyCode::Left),
                 KeyEvent::from(KeyCode::Right),
+                KeyEvent::from(KeyCode::Up),
+                KeyEvent::from(KeyCode::Down),
                 0,
             )];
             if self.num_players == 2 {
                 players.push(Player::new(
                     KeyEvent::from(KeyCode::Char('a')),
                     KeyEvent::from(KeyCode::Char('d')),
+                    KeyEvent::from(KeyCode::Char('w')),
+                    KeyEvent::from(KeyCode::Char('s')),
                     1,
                 ));
             }
@@ -114,25 +131,28 @@ impl SnakeGame {
                             must_exit = true;
                             break 'outer;
                         }
-                        for mut player in &mut players {
-                            let event_matches =
-                                find_matches(&events, &vec![player.left_key, player.right_key]);
+                        for player in &mut players {
+                            let event_matches = find_matches(
+                                &events,
+                                &vec![
+                                    player.left_key,
+                                    player.right_key,
+                                    player.up_key,
+                                    player.down_key,
+                                ],
+                            );
+
                             if !event_matches.is_empty() {
-                                if *event_matches.last().unwrap() == player.left_key {
-                                    player.snake.direction -= 1;
-                                } else if *event_matches.last().unwrap() == player.right_key {
-                                    player.snake.direction += 1;
-                                }
+                                player.update_snake_direction(
+                                    *event_matches.last().unwrap(),
+                                    self.is_four_key_steering,
+                                );
                             }
                         }
                     }
                 }
 
-                for mut player in &mut players {
-                    player.snake.direction = match player.snake.direction {
-                        -1 => 3,
-                        _ => player.snake.direction % 4,
-                    };
+                for player in &mut players {
                     move_snake(&mut player.snake.body_pos, player.snake.direction);
                 }
 
@@ -245,33 +265,28 @@ impl SnakeGame {
     }
 }
 
-pub fn move_snake(snake: &mut Vec<Coordinate>, snake_direction: i64) {
+pub fn move_snake(snake: &mut Vec<Coordinate>, snake_direction: Direction) {
     // add head in new direction
     let new_head = match snake_direction {
-        0 => Coordinate {
+        Direction::UP => Coordinate {
             // up
             row: snake[0].row - 1,
             col: snake[0].col,
         },
-        1 => Coordinate {
+        Direction::RIGHT => Coordinate {
             // right
             row: snake[0].row,
             col: snake[0].col + 1,
         },
-        2 => Coordinate {
+        Direction::DOWN => Coordinate {
             // down
             row: snake[0].row + 1,
             col: snake[0].col,
         },
-        3 => Coordinate {
+        Direction::LEFT => Coordinate {
             // left
             row: snake[0].row,
             col: snake[0].col - 1,
-        },
-        _ => Coordinate {
-            // no movement at all, invalid direction
-            row: snake[0].row,
-            col: snake[0].col,
         },
     };
 
@@ -330,7 +345,7 @@ pub fn find_matches<T: PartialEq + Copy>(look_in: &[T], look_for: &[T]) -> Vec<T
 pub struct Snake {
     pub body_pos: Vec<Coordinate>,
     // 0: up, 1: right, 2: down, 3: left
-    pub direction: i64,
+    pub direction: Direction,
 }
 
 impl Snake {
@@ -351,15 +366,25 @@ impl Snake {
         ];
         Snake {
             body_pos: snake_body,
-            direction: 0,
+            direction: Direction::UP,
         }
     }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Direction {
+    UP,
+    DOWN,
+    LEFT,
+    RIGHT,
 }
 
 #[derive(PartialEq, Clone, Debug)]
 pub struct Player {
     pub left_key: crossterm::event::KeyEvent,
     pub right_key: crossterm::event::KeyEvent,
+    pub up_key: crossterm::event::KeyEvent,
+    pub down_key: crossterm::event::KeyEvent,
     pub snake: Snake,
     pub player_idx: usize,
     pub has_crashed: bool,
@@ -369,15 +394,76 @@ impl Player {
     pub fn new(
         left_key: crossterm::event::KeyEvent,
         right_key: crossterm::event::KeyEvent,
+        up_key: crossterm::event::KeyEvent,
+        down_key: crossterm::event::KeyEvent,
         player_idx: usize,
     ) -> Player {
         Player {
             snake: Snake::new(player_idx),
             left_key: left_key,
             right_key: right_key,
+            up_key: up_key,
+            down_key: down_key,
             player_idx: player_idx,
             has_crashed: false,
         }
+    }
+    pub fn update_snake_direction(
+        &mut self,
+        key_event: crossterm::event::KeyEvent,
+        is_four_key_steering: bool,
+    ) {
+        if is_four_key_steering {
+            self._update_direction_four_keys(key_event);
+        } else {
+            self._update_direction_two_keys(key_event);
+        }
+    }
+
+    fn _update_direction_four_keys(&mut self, key_event: crossterm::event::KeyEvent) {
+        if key_event == self.up_key {
+            if self.snake.direction != Direction::UP && self.snake.direction != Direction::DOWN {
+                self.snake.direction = Direction::UP;
+            }
+        } else if key_event == self.down_key {
+            if self.snake.direction != Direction::UP && self.snake.direction != Direction::DOWN {
+                self.snake.direction = Direction::DOWN;
+            }
+        } else if key_event == self.left_key {
+            if self.snake.direction != Direction::RIGHT && self.snake.direction != Direction::LEFT {
+                self.snake.direction = Direction::LEFT;
+            }
+        } else if key_event == self.right_key {
+            if self.snake.direction != Direction::RIGHT && self.snake.direction != Direction::LEFT {
+                self.snake.direction = Direction::RIGHT;
+            }
+        }
+    }
+
+    fn _update_direction_two_keys(&mut self, key_event: crossterm::event::KeyEvent) {
+        let directions_ordered = vec![
+            Direction::UP,
+            Direction::RIGHT,
+            Direction::DOWN,
+            Direction::LEFT,
+        ];
+        let mut current_dir_index = directions_ordered
+            .iter()
+            .position(|&r| r == self.snake.direction)
+            .unwrap() as i64;
+
+        if key_event == self.left_key {
+            current_dir_index -= 1;
+        } else if key_event == self.right_key {
+            current_dir_index += 1;
+        }
+
+        current_dir_index = match current_dir_index {
+            -1 => 3,
+            _ => current_dir_index % 4,
+        };
+
+        self.snake.direction = directions_ordered[current_dir_index as usize];
     }
 }
 
