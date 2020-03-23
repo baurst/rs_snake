@@ -22,7 +22,7 @@ impl<T: Send + Copy> KeyEventQueue<T> {
         if let Ok(mut queue) = maybe_queue {
             let el = queue.pop_back();
             queue.clear();
-            return el;
+            el
         } else {
             panic!("poisoned mutex");
         }
@@ -34,7 +34,7 @@ impl<T: Send + Copy> KeyEventQueue<T> {
         if let Ok(mut queue) = maybe_queue {
             let drained = queue.drain(..).collect::<Vec<_>>();
             queue.clear();
-            return Some(drained);
+            Some(drained)
         } else {
             panic!("poisoned mutex");
         }

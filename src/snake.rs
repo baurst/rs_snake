@@ -21,11 +21,11 @@ pub struct SnakeGame {
 
 impl SnakeGame {
     pub fn new(num_players: usize, target_fps: f64, is_four_key_steering: bool) -> SnakeGame {
-        return SnakeGame {
-            num_players: num_players,
-            target_fps: target_fps,
-            is_four_key_steering: is_four_key_steering,
-        };
+        SnakeGame {
+            num_players,
+            target_fps,
+            is_four_key_steering,
+        }
     }
 
     pub fn run(self) -> Result<()> {
@@ -121,7 +121,7 @@ impl SnakeGame {
                     if !events.is_empty() {
                         if !find_matches(
                             &events,
-                            &vec![
+                            &[
                                 KeyEvent::from(KeyCode::Esc),
                                 KeyEvent::from(KeyCode::Char('q')),
                             ],
@@ -134,7 +134,7 @@ impl SnakeGame {
                         for player in &mut players {
                             let event_matches = find_matches(
                                 &events,
-                                &vec![
+                                &[
                                     player.left_key,
                                     player.right_key,
                                     player.up_key,
@@ -175,12 +175,9 @@ impl SnakeGame {
                 if food_found {
                     loop {
                         let new_food_pos = get_random_food_pos(screen_height, screen_width);
-                        let has_collision = players
-                            .iter()
-                            .find(|player| {
-                                snake_item_collision(&player.snake.body_pos, &new_food_pos)
-                            })
-                            .is_some();
+                        let has_collision = players.iter().any(|player| {
+                            snake_item_collision(&player.snake.body_pos, &new_food_pos)
+                        });
 
                         if !has_collision {
                             food_pos = new_food_pos;
@@ -214,10 +211,8 @@ impl SnakeGame {
 
                 // clear, update and draw screen buffer
                 screen_buffer.set_all(GameContent::Empty);
-                let mut player_id = 0;
-                for player in &players {
+                for (player_id, player) in players.iter().enumerate() {
                     add_snake_to_buffer(&mut screen_buffer, &player.snake.body_pos, player_id);
-                    player_id += 1;
                 }
                 screen_buffer.set_at(food_pos.row, food_pos.col, GameContent::Food);
                 screen_buffer.add_border(GameContent::Border);
@@ -297,7 +292,7 @@ pub fn move_snake(snake: &mut Vec<Coordinate>, snake_direction: Direction) {
 
 pub fn snake_item_collision(snake: &[Coordinate], item: &Coordinate) -> bool {
     let is_collision = snake.iter().position(|&r| r == *item);
-    return is_collision.is_some();
+    is_collision.is_some()
 }
 
 pub fn check_border_and_ego_collision(
@@ -305,20 +300,20 @@ pub fn check_border_and_ego_collision(
     screen_width: usize,
     screen_height: usize,
 ) -> bool {
-    return snake_body[0].row == 0
+    snake_body[0].row == 0
         || snake_body[0].row == screen_height - 1
         || snake_body[0].col == 0
         || snake_body[0].col == screen_width - 1
-        || snake_item_collision(&snake_body[1..], &snake_body[0]);
+        || snake_item_collision(&snake_body[1..], &snake_body[0])
 }
 
 pub fn snake_snake_collision(snake_a: &[Coordinate], snake_b: &[Coordinate]) -> i64 {
     if snake_item_collision(&snake_a[1..], &snake_b[0]) {
-        return 1;
+        1
     } else if snake_item_collision(&snake_b[1..], &snake_a[0]) {
-        return 0;
+        0
     } else {
-        return -1;
+        -1
     }
 }
 
@@ -326,7 +321,7 @@ pub fn get_random_food_pos(screen_height: usize, screen_width: usize) -> Coordin
     let mut rng = rand::thread_rng();
     let row = rng.gen_range(1, screen_height - 1);
     let col = rng.gen_range(1, screen_width - 1);
-    return Coordinate { row: row, col: col };
+    Coordinate { row, col }
 }
 
 pub fn find_matches<T: PartialEq + Copy>(look_in: &[T], look_for: &[T]) -> Vec<T> {
@@ -338,7 +333,7 @@ pub fn find_matches<T: PartialEq + Copy>(look_in: &[T], look_for: &[T]) -> Vec<T
             }
         }
     }
-    return found;
+    found
 }
 
 #[derive(PartialEq, Clone, Debug)]
@@ -400,11 +395,11 @@ impl Player {
     ) -> Player {
         Player {
             snake: Snake::new(player_idx),
-            left_key: left_key,
-            right_key: right_key,
-            up_key: up_key,
-            down_key: down_key,
-            player_idx: player_idx,
+            left_key,
+            right_key,
+            up_key,
+            down_key,
+            player_idx,
             has_crashed: false,
         }
     }
@@ -421,22 +416,26 @@ impl Player {
     }
 
     fn _update_direction_four_keys(&mut self, key_event: crossterm::event::KeyEvent) {
-        if key_event == self.up_key {
-            if self.snake.direction != Direction::UP && self.snake.direction != Direction::DOWN {
-                self.snake.direction = Direction::UP;
-            }
-        } else if key_event == self.down_key {
-            if self.snake.direction != Direction::UP && self.snake.direction != Direction::DOWN {
-                self.snake.direction = Direction::DOWN;
-            }
-        } else if key_event == self.left_key {
-            if self.snake.direction != Direction::RIGHT && self.snake.direction != Direction::LEFT {
-                self.snake.direction = Direction::LEFT;
-            }
-        } else if key_event == self.right_key {
-            if self.snake.direction != Direction::RIGHT && self.snake.direction != Direction::LEFT {
-                self.snake.direction = Direction::RIGHT;
-            }
+        if key_event == self.up_key
+            && self.snake.direction != Direction::UP
+            && self.snake.direction != Direction::DOWN
+        {
+            self.snake.direction = Direction::UP;
+        } else if key_event == self.down_key
+            && self.snake.direction != Direction::UP
+            && self.snake.direction != Direction::DOWN
+        {
+            self.snake.direction = Direction::DOWN;
+        } else if key_event == self.left_key
+            && self.snake.direction != Direction::RIGHT
+            && self.snake.direction != Direction::LEFT
+        {
+            self.snake.direction = Direction::LEFT;
+        } else if key_event == self.right_key
+            && self.snake.direction != Direction::RIGHT
+            && self.snake.direction != Direction::LEFT
+        {
+            self.snake.direction = Direction::RIGHT;
         }
     }
 
@@ -469,7 +468,7 @@ impl Player {
 
 pub fn add_snake_to_buffer(
     screen_buffer: &mut ScreenBuffer,
-    snake: &Vec<Coordinate>,
+    snake: &[Coordinate],
     player_idx: usize,
 ) {
     screen_buffer.set_at(
@@ -480,7 +479,7 @@ pub fn add_snake_to_buffer(
 
     // only use rest of the body
     let snake_body: Vec<&Coordinate> = snake
-        .into_iter()
+        .iter()
         .enumerate()
         .filter(|&(i, _)| i != 0)
         .map(|(_, v)| v)

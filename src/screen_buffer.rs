@@ -35,8 +35,8 @@ impl ScreenBuffer {
         initial_content: GameContent,
     ) -> ScreenBuffer {
         ScreenBuffer {
-            screen_height: screen_height,
-            screen_width: screen_width,
+            screen_height,
+            screen_width,
             buffer: vec![initial_content; screen_height * screen_width],
         }
     }
@@ -61,7 +61,7 @@ impl ScreenBuffer {
     }
 
     pub fn get_at(&self, row: usize, col: usize) -> GameContent {
-        return self.buffer[col + row * self.screen_width];
+        self.buffer[col + row * self.screen_width]
     }
 
     pub fn set_at(&mut self, row: usize, col: usize, content: GameContent) {
@@ -125,14 +125,16 @@ impl ScreenBuffer {
                         }
                         GameContent::Character(character) => {
                             let is_first_char = i == 0;
-                            let styled_c: crossterm::style::StyledContent<String> =
-                                match is_first_char {
-                                    true => crossterm::style::style(character.to_string())
-                                        .attribute(Attribute::Bold)
-                                        .red()
-                                        .on_dark_grey(),
-                                    _ => crossterm::style::style("█".to_string()).dark_grey(),
-                                };
+                            let styled_c: crossterm::style::StyledContent<String> = if is_first_char
+                            {
+                                crossterm::style::style(character.to_string())
+                                    .attribute(Attribute::Bold)
+                                    .red()
+                                    .on_dark_grey()
+                            } else {
+                                crossterm::style::style("█".to_string()).dark_grey()
+                            };
+
                             stdout
                                 .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
                                 .queue(style::PrintStyledContent(styled_c))?;
