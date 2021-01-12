@@ -127,7 +127,7 @@ impl ScreenBuffer {
                         GameContent::Empty => {
                             stdout
                                 .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
-                                .queue(style::PrintStyledContent("█".dark_grey()))?;
+                                .queue(style::PrintStyledContent("█".black()))?;
                         }
                         GameContent::Character(character) => {
                             let is_first_char = i == 0;
@@ -135,10 +135,10 @@ impl ScreenBuffer {
                             {
                                 crossterm::style::style(character.to_string())
                                     .attribute(Attribute::Bold)
-                                    .red()
-                                    .on_dark_grey()
+                                    .white()
+                                    .on_black()
                             } else {
-                                crossterm::style::style("█".to_string()).dark_grey()
+                                crossterm::style::style("█".to_string()).black()
                             };
 
                             stdout
@@ -151,7 +151,7 @@ impl ScreenBuffer {
                             {
                                 crossterm::style::style(character.to_string())
                                     .attribute(Attribute::Bold)
-                                    .red()
+                                    .white()
                                     .on_dark_blue()
                             } else {
                                 crossterm::style::style("█".to_string()).dark_blue()
