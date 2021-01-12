@@ -14,6 +14,7 @@ pub enum GameContent {
     Border,
     Empty,
     Character(char),
+    CharacterOnBorder(char),
 }
 
 #[derive(PartialEq, Clone, Copy, Debug)]
@@ -55,7 +56,12 @@ impl ScreenBuffer {
         let mut col_idx = header_start_idx;
 
         for sym in str_chars {
-            self.set_at(target_row, col_idx, GameContent::Character(sym));
+            let gc = if target_row == 0 {
+                GameContent::CharacterOnBorder(sym)
+            } else {
+                GameContent::Character(sym)
+            };
+            self.set_at(target_row, col_idx, gc);
             col_idx += 1;
         }
     }
@@ -121,7 +127,7 @@ impl ScreenBuffer {
                         GameContent::Empty => {
                             stdout
                                 .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
-                                .queue(style::PrintStyledContent("█".dark_grey()))?;
+                                .queue(style::PrintStyledContent("█".black()))?;
                         }
                         GameContent::Character(character) => {
                             let is_first_char = i == 0;
@@ -129,10 +135,26 @@ impl ScreenBuffer {
                             {
                                 crossterm::style::style(character.to_string())
                                     .attribute(Attribute::Bold)
-                                    .red()
-                                    .on_dark_grey()
+                                    .white()
+                                    .on_black()
                             } else {
-                                crossterm::style::style("█".to_string()).dark_grey()
+                                crossterm::style::style("█".to_string()).black()
+                            };
+
+                            stdout
+                                .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
+                                .queue(style::PrintStyledContent(styled_c))?;
+                        }
+                        GameContent::CharacterOnBorder(character) => {
+                            let is_first_char = i == 0;
+                            let styled_c: crossterm::style::StyledContent<String> = if is_first_char
+                            {
+                                crossterm::style::style(character.to_string())
+                                    .attribute(Attribute::Bold)
+                                    .white()
+                                    .on_dark_blue()
+                            } else {
+                                crossterm::style::style("█".to_string()).dark_blue()
                             };
 
                             stdout
