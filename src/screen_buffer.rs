@@ -2,7 +2,7 @@ use std::io::Write;
 
 use crossterm::{
     cursor::{self},
-    style::{self, Attribute, Colorize},
+    style::{self, Colorize, StyledContent},
     QueueableCommand, Result,
 };
 
@@ -15,6 +15,46 @@ pub enum GameContent {
     Empty,
     Character(char),
     CharacterOnBorder(char),
+}
+
+fn map_game_content_to_color(gc: &GameContent, is_padded_char: bool) -> StyledContent<String> {
+    match gc {
+        GameContent::SnakeHead(player_idx) => {
+            let styled_content = if *player_idx == 0 as usize {
+                "█".to_string().dark_green()
+            } else {
+                "█".to_string().dark_yellow()
+            };
+            styled_content
+        }
+        GameContent::SnakeBody(player_idx) => {
+            let styled_content = if *player_idx == 0 as usize {
+                "█".to_string().green()
+            } else {
+                "█".to_string().yellow()
+            };
+            styled_content
+        }
+        GameContent::Food => "█".to_string().red(),
+        GameContent::Border => "█".to_string().dark_blue(),
+        GameContent::Empty => "█".to_string().black(),
+        GameContent::Character(some_char) => {
+            let styled_content = if is_padded_char {
+                "█".to_string().black()
+            } else {
+                some_char.to_string().white().on_black()
+            };
+            return styled_content;
+        }
+        GameContent::CharacterOnBorder(some_char) => {
+            let styled_content = if is_padded_char {
+                "█".to_string().dark_blue()
+            } else {
+                some_char.to_string().white().on_dark_blue()
+            };
+            return styled_content;
+        }
+    }
 }
 
 #[derive(PartialEq, Clone, Copy, Debug)]
@@ -91,77 +131,11 @@ impl ScreenBuffer {
                 let content = self.get_at(row_idx, col_idx_buffer);
                 for i in 0..2 {
                     let col_idx = 2 * col_idx_buffer + i;
-                    match content {
-                        GameContent::Border => {
-                            stdout
-                                .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
-                                .queue(style::PrintStyledContent("█".dark_blue()))?;
-                        }
-                        GameContent::SnakeHead(player_idx) => {
-                            if player_idx == 0 {
-                                stdout
-                                    .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
-                                    .queue(style::PrintStyledContent("█".dark_green()))?;
-                            } else if player_idx == 1 {
-                                stdout
-                                    .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
-                                    .queue(style::PrintStyledContent("█".dark_yellow()))?;
-                            }
-                        }
-                        GameContent::SnakeBody(player_idx) => {
-                            if player_idx == 0 {
-                                stdout
-                                    .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
-                                    .queue(style::PrintStyledContent("█".green()))?;
-                            } else if player_idx == 1 {
-                                stdout
-                                    .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
-                                    .queue(style::PrintStyledContent("█".yellow()))?;
-                            }
-                        }
-                        GameContent::Food => {
-                            stdout
-                                .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
-                                .queue(style::PrintStyledContent("█".red()))?;
-                        }
-                        GameContent::Empty => {
-                            stdout
-                                .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
-                                .queue(style::PrintStyledContent("█".black()))?;
-                        }
-                        GameContent::Character(character) => {
-                            let is_first_char = i == 0;
-                            let styled_c: crossterm::style::StyledContent<String> = if is_first_char
-                            {
-                                crossterm::style::style(character.to_string())
-                                    .attribute(Attribute::Bold)
-                                    .white()
-                                    .on_black()
-                            } else {
-                                crossterm::style::style("█".to_string()).black()
-                            };
 
-                            stdout
-                                .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
-                                .queue(style::PrintStyledContent(styled_c))?;
-                        }
-                        GameContent::CharacterOnBorder(character) => {
-                            let is_first_char = i == 0;
-                            let styled_c: crossterm::style::StyledContent<String> = if is_first_char
-                            {
-                                crossterm::style::style(character.to_string())
-                                    .attribute(Attribute::Bold)
-                                    .white()
-                                    .on_dark_blue()
-                            } else {
-                                crossterm::style::style("█".to_string()).dark_blue()
-                            };
-
-                            stdout
-                                .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
-                                .queue(style::PrintStyledContent(styled_c))?;
-                        }
-                    }
+                    let styled_content = map_game_content_to_color(&content, i != 0);
+                    stdout
+                        .queue(cursor::MoveTo(col_idx as u16, row_idx as u16))?
+                        .queue(style::PrintStyledContent(styled_content))?;
                 }
             }
         }
