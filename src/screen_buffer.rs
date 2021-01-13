@@ -18,41 +18,38 @@ pub enum GameContent {
 }
 
 fn map_game_content_to_color(gc: &GameContent, is_padded_char: bool) -> StyledContent<String> {
+    // \u{2588} is a full block symbol
     match gc {
         GameContent::SnakeHead(player_idx) => {
-            let styled_content = if *player_idx == 0 as usize {
-                "█".to_string().dark_green()
+            if *player_idx == 0_usize {
+                "\u{2588}".to_string().dark_green()
             } else {
-                "█".to_string().dark_yellow()
-            };
-            styled_content
+                "\u{2588}".to_string().dark_yellow()
+            }
         }
         GameContent::SnakeBody(player_idx) => {
-            let styled_content = if *player_idx == 0 as usize {
-                "█".to_string().green()
+            if *player_idx == 0_usize {
+                "\u{2588}".to_string().green()
             } else {
-                "█".to_string().yellow()
-            };
-            styled_content
+                "\u{2588}".to_string().yellow()
+            }
         }
-        GameContent::Food => "█".to_string().red(),
-        GameContent::Border => "█".to_string().dark_blue(),
-        GameContent::Empty => "█".to_string().black(),
+        GameContent::Food => "\u{2588}".to_string().red(),
+        GameContent::Border => "\u{2588}".to_string().dark_blue(),
+        GameContent::Empty => "\u{2588}".to_string().black(),
         GameContent::Character(some_char) => {
-            let styled_content = if is_padded_char {
-                "█".to_string().black()
+            if is_padded_char {
+                "\u{2588}".to_string().black()
             } else {
                 some_char.to_string().white().on_black()
-            };
-            return styled_content;
+            }
         }
         GameContent::CharacterOnBorder(some_char) => {
-            let styled_content = if is_padded_char {
-                "█".to_string().dark_blue()
+            if is_padded_char {
+                "\u{2588}".to_string().dark_blue()
             } else {
                 some_char.to_string().white().on_dark_blue()
-            };
-            return styled_content;
+            }
         }
     }
 }
@@ -83,7 +80,7 @@ impl ScreenBuffer {
     }
 
     pub fn set_all(&mut self, content: GameContent) {
-        for screen_char in self.buffer.iter_mut() {
+        for screen_char in &mut self.buffer {
             *screen_char = content;
         }
     }
@@ -91,7 +88,7 @@ impl ScreenBuffer {
     pub fn set_centered_text_at_row(&mut self, target_row: usize, message: &str) {
         let str_chars = message.chars();
         let str_len = str_chars.clone().count();
-        let header_start_idx = ((self.screen_width - str_len) / 2 as usize).max(0);
+        let header_start_idx = ((self.screen_width - str_len) / 2usize).max(0);
 
         let mut col_idx = header_start_idx;
 
@@ -129,6 +126,7 @@ impl ScreenBuffer {
         for row_idx in 0..self.screen_height {
             for col_idx_buffer in 0..self.screen_width {
                 let content = self.get_at(row_idx, col_idx_buffer);
+                // draw each element twice horizontally, so that we get square "pixels"
                 for i in 0..2 {
                     let col_idx = 2 * col_idx_buffer + i;
 

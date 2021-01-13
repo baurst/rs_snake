@@ -33,7 +33,7 @@ impl SnakeGame {
         let thread_event_queue = event_queue.clone();
 
         // launch seperate thread to deal with keyboard input
-        thread::spawn(move || send_events(thread_event_queue));
+        thread::spawn(move || send_events(&thread_event_queue));
 
         let mut stdout = stdout();
         enable_raw_mode()?;

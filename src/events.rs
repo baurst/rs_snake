@@ -50,7 +50,7 @@ impl<T: Send + Copy> KeyEventQueue<T> {
     }
 }
 
-pub fn send_events(event_queue: KeyEventQueue<KeyEvent>) -> crossterm::Result<()> {
+pub fn send_events(event_queue: &KeyEventQueue<KeyEvent>) -> crossterm::Result<()> {
     loop {
         if poll(Duration::from_millis(3))? {
             match read()? {
