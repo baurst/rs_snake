@@ -55,9 +55,9 @@ impl SnakeGame {
         screen_buffer.set_centered_text_at_row(
             screen_height / 2 + 4,
             if self.is_four_key_steering {
-                "Player 1: arrow keys"
+                "Player 1 (green): arrow keys"
             } else {
-                "Player 1: left and right arrow keys"
+                "Player 1 (green): left and right arrow keys"
             },
         );
 
@@ -65,9 +65,9 @@ impl SnakeGame {
             screen_buffer.set_centered_text_at_row(
                 screen_height / 2 + 6,
                 if self.is_four_key_steering {
-                    "Player 2: W A S D keys"
+                    "Player 2 (yellow): W A S D keys"
                 } else {
-                    "Player 2: A and D keys"
+                    "Player 2 (yellow): A and D keys"
                 },
             );
         }
