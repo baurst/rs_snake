@@ -1,5 +1,4 @@
-[![Build Status](https://travis-ci.com/baurst/rs_snake.svg?token=KGmoNyosUqTq92iqGZE9&branch=master)](https://travis-ci.com/baurst/rs_snake)
-
+![Build Status](https://github.com/baurst/rs_snake/actions/workflows/rust.yml/badge.svg)
 # Snake ...
 
 ... with your friends ...
