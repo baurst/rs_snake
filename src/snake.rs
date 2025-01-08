@@ -265,22 +265,22 @@ impl SnakeGame {
 pub fn move_snake(snake: &mut Vec<Coordinate>, snake_direction: Direction) {
     // add head in new direction
     let new_head = match snake_direction {
-        Direction::UP => Coordinate {
+        Direction::Up => Coordinate {
             // up
             row: snake[0].row - 1,
             col: snake[0].col,
         },
-        Direction::RIGHT => Coordinate {
+        Direction::Right => Coordinate {
             // right
             row: snake[0].row,
             col: snake[0].col + 1,
         },
-        Direction::DOWN => Coordinate {
+        Direction::Down => Coordinate {
             // down
             row: snake[0].row + 1,
             col: snake[0].col,
         },
-        Direction::LEFT => Coordinate {
+        Direction::Left => Coordinate {
             // left
             row: snake[0].row,
             col: snake[0].col - 1,
@@ -363,17 +363,17 @@ impl Snake {
         ];
         Snake {
             body_pos: snake_body,
-            direction: Direction::UP,
+            direction: Direction::Up,
         }
     }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Direction {
-    UP,
-    DOWN,
-    LEFT,
-    RIGHT,
+    Up,
+    Down,
+    Left,
+    Right,
 }
 
 #[derive(PartialEq, Clone, Debug)]
@@ -419,34 +419,34 @@ impl Player {
 
     fn _update_direction_four_keys(&mut self, key_event: crossterm::event::KeyEvent) {
         if key_event == self.up_key
-            && self.snake.direction != Direction::UP
-            && self.snake.direction != Direction::DOWN
+            && self.snake.direction != Direction::Up
+            && self.snake.direction != Direction::Down
         {
-            self.snake.direction = Direction::UP;
+            self.snake.direction = Direction::Up;
         } else if key_event == self.down_key
-            && self.snake.direction != Direction::UP
-            && self.snake.direction != Direction::DOWN
+            && self.snake.direction != Direction::Up
+            && self.snake.direction != Direction::Down
         {
-            self.snake.direction = Direction::DOWN;
+            self.snake.direction = Direction::Down;
         } else if key_event == self.left_key
-            && self.snake.direction != Direction::RIGHT
-            && self.snake.direction != Direction::LEFT
+            && self.snake.direction != Direction::Right
+            && self.snake.direction != Direction::Left
         {
-            self.snake.direction = Direction::LEFT;
+            self.snake.direction = Direction::Left;
         } else if key_event == self.right_key
-            && self.snake.direction != Direction::RIGHT
-            && self.snake.direction != Direction::LEFT
+            && self.snake.direction != Direction::Right
+            && self.snake.direction != Direction::Left
         {
-            self.snake.direction = Direction::RIGHT;
+            self.snake.direction = Direction::Right;
         }
     }
 
     fn _update_direction_two_keys(&mut self, key_event: crossterm::event::KeyEvent) {
-        let directions_ordered = vec![
-            Direction::UP,
-            Direction::RIGHT,
-            Direction::DOWN,
-            Direction::LEFT,
+        let directions_ordered = [
+            Direction::Up,
+            Direction::Right,
+            Direction::Down,
+            Direction::Left,
         ];
         let mut current_dir_index = directions_ordered
             .iter()
