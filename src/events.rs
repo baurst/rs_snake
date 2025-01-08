@@ -2,6 +2,8 @@ use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+use std::io::Result;
+
 use crossterm::event::{poll, read, Event, KeyEvent};
 
 #[derive(Clone)]
@@ -50,7 +52,7 @@ impl<T: Send + Copy> KeyEventQueue<T> {
     }
 }
 
-pub fn send_events(event_queue: &KeyEventQueue<KeyEvent>) -> crossterm::Result<()> {
+pub fn send_events(event_queue: &KeyEventQueue<KeyEvent>) -> Result<()> {
     loop {
         if poll(Duration::from_millis(3))? {
             match read()? {
@@ -60,6 +62,7 @@ pub fn send_events(event_queue: &KeyEventQueue<KeyEvent>) -> crossterm::Result<(
                 }
                 Event::Mouse(_event) => {}
                 Event::Resize(_width, _height) => {}
+                Event::FocusGained | Event::FocusLost | Event::Paste(_) => {}
             }
         }
     }

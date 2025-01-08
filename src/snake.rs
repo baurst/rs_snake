@@ -7,8 +7,10 @@ use crossterm::{
     cursor::{self},
     event::{KeyCode, KeyEvent},
     terminal::{self, disable_raw_mode, enable_raw_mode},
-    ExecutableCommand, Result,
+    ExecutableCommand,
 };
+
+use std::io::Result;
 
 use crate::events::{send_events, KeyEventQueue};
 use crate::screen_buffer::{Coordinate, GameContent, ScreenBuffer};
@@ -319,8 +321,8 @@ pub fn snake_snake_collision(snake_a: &[Coordinate], snake_b: &[Coordinate]) -> 
 
 pub fn get_random_food_pos(screen_height: usize, screen_width: usize) -> Coordinate {
     let mut rng = rand::thread_rng();
-    let row = rng.gen_range(1, screen_height - 1);
-    let col = rng.gen_range(1, screen_width - 1);
+    let row = rng.gen_range(1..(screen_height - 1));
+    let col = rng.gen_range(1..(screen_width - 1));
     Coordinate { row, col }
 }
 

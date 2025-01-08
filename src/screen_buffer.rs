@@ -2,9 +2,11 @@ use std::io::Write;
 
 use crossterm::{
     cursor::{self},
-    style::{self, Colorize, StyledContent},
-    QueueableCommand, Result,
+    style::{self, StyledContent, Stylize},
+    QueueableCommand,
 };
+
+use std::io::Result;
 
 #[derive(Clone, Copy, Debug)]
 pub enum GameContent {

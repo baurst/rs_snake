@@ -54,8 +54,8 @@ USAGE:
 
 FLAGS:
     -e, --easy                sets difficulty to easy
-    -h, --hard                sets difficulty to hard
-        --help                Prints help information
+    -d, --hard                sets difficulty to hard
+    -h  --help                Prints help information
     -m, --multi               enables multiplayer mode
     -t, --two_key_steering    steer the snakes using two keys only (increased difficulty)
     -V, --version             Prints version information
