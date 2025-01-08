@@ -78,10 +78,15 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: Download release artifacts
+      - name: Download release artifacts (Linux)
         uses: actions/download-artifact@v3
         with:
-          name: snake-${{ github.ref_name }}-${{ matrix.target }}
+          name: snake-${{ github.ref_name }}-x86_64-unknown-linux-musl
+          path: release/
+      - name: Download release artifacts (Windows)
+        uses: actions/download-artifact@v3
+        with:
+          name: snake-${{ github.ref_name }}-x86_64-pc-windows-msvc
           path: release/
 
       - name: Create GitHub Release
