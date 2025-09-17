@@ -321,8 +321,9 @@ pub fn snake_snake_collision(snake_a: &[Coordinate], snake_b: &[Coordinate]) -> 
 
 pub fn get_random_food_pos(screen_height: usize, screen_width: usize) -> Coordinate {
     let mut rng = rand::thread_rng();
-    let row = rng.gen_range(1..(screen_height - 1));
-    let col = rng.gen_range(1..(screen_width - 1));
+    // screen width and height -2, since -1 is the index of the border
+    let row = rng.gen_range(1..(screen_height - 2));
+    let col = rng.gen_range(1..(screen_width - 2));
     Coordinate { row, col }
 }
 
